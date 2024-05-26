@@ -1,6 +1,7 @@
 #include "camera.h"
 
 #include "config.h"
+#include "renderParam.h"
 USTC_CG_NAMESPACE_OPEN_SCOPE
 using namespace pxr;
 void Hd_USTC_CG_Camera::Sync(
@@ -15,6 +16,7 @@ void Hd_USTC_CG_Camera::Sync(
 
     _inverseViewMatrix = GetTransform();
     _viewMatrix = _inverseViewMatrix.GetInverse();
+
 }
 
 GfRay Hd_USTC_CG_Camera::generateRay(

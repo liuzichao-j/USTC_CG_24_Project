@@ -10,6 +10,7 @@
 #include "pxr/usd/usd/primRange.h"
 #include "pxr/usd/usd/stage.h"
 #include "pxr/usdImaging/usdImagingGL/engine.h"
+#include <iostream>
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 class NodeTree;
@@ -127,6 +128,7 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
     renderer_->SetRendererAov(HdAovTokens->color);
     renderer_->SetRendererSetting(TfToken("RenderNodeTree"), VtValue((void*)node_tree));
     renderer_->SetRendererSetting(TfToken("RenderNodeTreeExecutor"), VtValue((void*)executor));
+    renderer_->SetRendererSetting(TfToken("CameraVelocity"), VtValue((void*)&(free_camera_->m_CameraVelocity)));
 
     _renderParams.enableLighting = true;
     _renderParams.enableSceneMaterials = true;

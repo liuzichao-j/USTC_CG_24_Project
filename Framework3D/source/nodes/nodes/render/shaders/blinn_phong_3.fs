@@ -27,12 +27,64 @@ uniform sampler2D metallicRoughnessSampler;
 uniform sampler2DArray shadow_maps;
 uniform sampler2D position;
 
+uniform int shadow_map_resolution;
+
 // uniform float alpha;
-uniform vec3 camPos;
 
 uniform int light_count;
 
 layout(location = 0) out vec4 Color;
+
+float PCSS(vec3 frag_pos, int light_index, float NdotL)
+{
+    vec4 frag_pos_light_space = lights[light_index].light_projection * lights[light_index].light_view * vec4(frag_pos, 1.0); 
+    const int sample_range_blocker = 5, sample_range_shadow = 9;
+    float sample_r = 1.0 / shadow_map_resolution;
+    float blocker = 0.0;
+    int blocker_n = 0;
+
+    float bias = max(0.05 * (1.0 - NdotL), 0.005);
+    vec3 proj_coords = frag_pos_light_space.xyz / frag_pos_light_space.w;
+    proj_coords = proj_coords * 0.5 + 0.5;
+    float current_depth = frag_pos_light_space.z / frag_pos_light_space.w;
+
+    for(int i = -sample_range_blocker; i <= sample_range_blocker; i++)
+    {
+        for(int j = -sample_range_blocker; j <= sample_range_blocker; j++)
+        {
+            vec2 offset = vec2(i, j) * sample_r;
+            float sample_depth = texture(shadow_maps, vec3(proj_coords.xy + offset, lights[light_index].shadow_map_id)).r;
+            // 加上 bias 以避免自遮挡
+            if(current_depth + bias > sample_depth)
+            {
+                blocker += sample_depth;
+                blocker_n++;
+            }
+        }
+    }
+
+    blocker /= float(blocker_n);
+
+    float w = (current_depth - blocker) / blocker * lights[light_index].radius;
+
+    float shadow_sum = 0.0;
+    
+    // Maybe not correct
+    for(int i = -sample_range_shadow; i <= sample_range_shadow; i++)
+    {
+        for(int j = -sample_range_shadow; j <= sample_range_shadow; j++)
+        {
+            vec2 offset = vec2(i, j) / float(sample_range_shadow) * w;
+            float sample_depth = texture(shadow_maps, vec3(proj_coords.xy + offset, lights[light_index].shadow_map_id)).r;
+            if(current_depth - bias > sample_depth)
+            {
+                shadow_sum += 1.0;
+            }
+        }
+    }
+
+    return shadow_sum / (sample_range_shadow * 2 + 1) / (sample_range_shadow * 2 + 1);
+}
 
 // https://stackoverflow.com/questions/9446888/best-way-to-detect-nans-in-opengl-shaderms
 bool isnan( float val )
@@ -54,13 +106,6 @@ void main()
 
     vec3 norm = normalize(texture(normalMapSampler, uv).xyz);
 
-    // if(isnan(norm.x))
-    // {
-    //     //background
-    //     Color = vec4(vec3(0.1), 1.0);
-    //     return;
-    // }
-
     vec3 diff_color = texture(diffuseColorSampler, uv).rgb;
     vec3 result = vec3(0.0);
 
@@ -74,6 +119,7 @@ void main()
 
     for(int i = 0; i < light_count; i++) 
     {
+        float shadow_map_value = texture(shadow_maps, vec3(uv, lights[i].shadow_map_id)).x;
         float dist_sq = dot(frag_pos - lights[i].position, frag_pos - lights[i].position);
 
         vec3 lightDir = normalize(lights[i].position - frag_pos);
@@ -82,12 +128,12 @@ void main()
         float NdotL = max(dot(norm, lightDir), 0.0);
         float NdotH = max(dot(norm, halfwayDir), 0.0);
         
-        vec3 ambient = lights[i].color * 0.1 * diff_color;
+        vec3 ambient = lights[i].color * 0.05 * diff_color;
         vec3 diff = lights[i].color * NdotL * diffuse;
         vec3 spec = lights[i].color * specular * pow(NdotH, glossiness * 31.0 + 1.0);
 
-        result += (ambient + diff + spec) / dist_sq;
-
+        float shadow = PCSS(frag_pos, i, NdotL);
+        result += (ambient + (1.0 - shadow) * (diff + spec)) / dist_sq;
     }
     Color = vec4(result, 1.0);
     

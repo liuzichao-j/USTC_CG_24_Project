@@ -58,8 +58,8 @@ void FirstPersonCamera::MouseButtonUpdate(int button)
 std::pair<bool, pxr::GfVec3f> FirstPersonCamera::AnimateTranslation(float deltaT)
 {
     bool cameraDirty = false;
-    float moveStep = deltaT * m_MoveSpeed;
-    pxr::GfVec3f cameraMoveVec = pxr::GfVec3f(0.f);
+    float moveStep = deltaT * m_MoveAcceleration;
+    pxr::GfVec3f cameraMoveVec = m_CameraVelocity * deltaT;
 
     if (keyboardState[KeyboardControls::SpeedUp])
         moveStep *= 3.f;
@@ -96,11 +96,14 @@ std::pair<bool, pxr::GfVec3f> FirstPersonCamera::AnimateTranslation(float deltaT
         cameraDirty = true;
         cameraMoveVec += -m_CameraUp * moveStep;
     }
+    if (cameraMoveVec.GetLength() > m_MoveMaxSpeed)
+        cameraMoveVec = cameraMoveVec.GetNormalized() * m_MoveMaxSpeed;
     return std::make_pair(cameraDirty, cameraMoveVec);
 }
 
-void FirstPersonCamera::UpdateCamera(pxr::GfVec3f cameraMoveVec, pxr::GfMatrix4f cameraRotation)
+void FirstPersonCamera::UpdateCamera(pxr::GfVec3f cameraMoveVec, pxr::GfMatrix4f cameraRotation, double delta_time)
 {
+    m_CameraVelocity = cameraMoveVec / delta_time;
     m_CameraPos += cameraMoveVec;
     m_CameraDir = cameraRotation.TransformAffine(m_CameraDir).GetNormalized();
     m_CameraUp = cameraRotation.TransformAffine(m_CameraUp).GetNormalized();
@@ -163,9 +166,7 @@ void FirstPersonCamera::Animate(float deltaT)
     cameraDirty |= translateResult.first;
     const pxr::GfVec3f& cameraMoveVec = translateResult.second;
 
-    if (cameraDirty) {
-        UpdateCamera(cameraMoveVec, cameraRotation);
-    }
+	UpdateCamera(cameraMoveVec * m_CameraSpeedDecay, cameraRotation, deltaT);
 }
 
 void FirstPersonCamera::AnimateSmooth(float deltaT)
@@ -222,9 +223,7 @@ void FirstPersonCamera::AnimateSmooth(float deltaT)
     cameraDirty |= translateResult.first;
     const pxr::GfVec3f& cameraMoveVec = translateResult.second;
 
-    if (cameraDirty) {
-        UpdateCamera(cameraMoveVec, cameraRotation);
-    }
+	UpdateCamera(cameraMoveVec * m_CameraSpeedDecay, cameraRotation, deltaT);
 }
 
 void FirstPersonCamera::MouseScrollUpdate(double offset)

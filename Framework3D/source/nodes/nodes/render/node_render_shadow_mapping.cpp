@@ -71,7 +71,7 @@ static void node_exec(ExeParams params)
             // performance of the shadow maps.
 
             GfMatrix4f light_view_mat;
-            GfMatrix4f light_projection_mat;
+            GfMatrix4f light_projection_mat = GfMatrix4f();
 
             if (lights[light_id]->GetLightType() == HdPrimTypeTokens->sphereLight) {
                 GfFrustum frustum;
@@ -81,7 +81,7 @@ static void node_exec(ExeParams params)
 
                 light_view_mat =
                     GfMatrix4f().SetLookAt(light_position, GfVec3f(0, 0, 0), GfVec3f(0, 0, 1));
-                frustum.SetPerspective(120.f, 1.0, 1, 25.f);
+                frustum.SetPerspective(135.f, 1.0, 1, 25.f);
                 light_projection_mat = GfMatrix4f(frustum.ComputeProjectionMatrix());
             }
             // else (lights[light_id]->GetLightType() == HdPrimTypeTokens->distantLight). See

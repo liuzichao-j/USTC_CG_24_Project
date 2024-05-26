@@ -26,6 +26,7 @@ public:
     void update(const HdRenderPassStateSharedPtr& renderPassState) const;
 
     mutable GfRect2i _dataWindow;
+    mutable GfVec3f _velocity;
     mutable GfMatrix4d _inverseProjMatrix;
     mutable GfMatrix4d _projMatrix;
     mutable GfMatrix4d _inverseViewMatrix;

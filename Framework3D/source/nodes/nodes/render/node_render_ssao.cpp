@@ -14,9 +14,13 @@
 namespace USTC_CG::node_ssao {
 static void node_declare(NodeDeclarationBuilder& b)
 {
+    b.add_input<decl::Camera>("Camera");
     b.add_input<decl::Texture>("Color");
     b.add_input<decl::Texture>("Position");
     b.add_input<decl::Texture>("Depth");
+    b.add_input<decl::Texture>("Normal");
+
+    b.add_input<decl::Float>("Radius").default_val(0.1f).min(0.0f).max(1.0f);
 
     // HW6: For HBAO you might need normal texture.
 
@@ -26,7 +30,21 @@ static void node_declare(NodeDeclarationBuilder& b)
 
 static void node_exec(ExeParams params)
 {
+    auto cameras = params.get_input<CameraArray>("Camera");
     auto color = params.get_input<TextureHandle>("Color");
+    auto position_texture = params.get_input<TextureHandle>("Position");
+    auto depth_texture = params.get_input<TextureHandle>("Depth");
+    auto normal_texture = params.get_input<TextureHandle>("Normal");
+    auto radius = params.get_input<float>("Radius");
+
+    Hd_USTC_CG_Camera* free_camera;
+
+    for (auto camera : cameras) {
+        if (camera->GetId() != SdfPath::EmptyPath()) {
+            free_camera = camera;
+            break;
+        }
+    }
 
     auto size = color->desc.size;
 
@@ -60,7 +78,26 @@ static void node_exec(ExeParams params)
     shader->shader.use();
     shader->shader.setVec2("iResolution", size);
 
-    // HW6: Bind the textures like other passes here.
+    shader->shader.setInt("positionSampler", 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, position_texture->texture_id);
+
+    shader->shader.setInt("normalSampler", 1);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D, normal_texture->texture_id);
+
+    shader->shader.setInt("depthSampler", 2);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, depth_texture->texture_id);
+
+    shader->shader.setInt("baseColorSampler", 3);
+    glActiveTexture(GL_TEXTURE3);
+    glBindTexture(GL_TEXTURE_2D, color->texture_id);
+
+    shader->shader.setMat4("view", GfMatrix4f(free_camera->_viewMatrix));
+    shader->shader.setMat4("projection", GfMatrix4f(free_camera->_projMatrix));
+
+    shader->shader.setFloat("radius", radius);
 
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);

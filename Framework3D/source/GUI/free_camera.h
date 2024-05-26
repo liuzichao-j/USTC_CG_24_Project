@@ -25,14 +25,19 @@ class FreeCamera : public pxr::GfCamera {
         MouseButtonCount
     };
     pxr::GfVec2f m_ViewportSize = pxr::GfVec2f(0.0f);
+    pxr::GfVec3f m_CameraVelocity = { 0, 0, 0 };
 
    protected:
     pxr::GfVec3f m_CameraPos = { -10, 0, 0 };
     pxr::GfVec3f m_CameraRight = { 0, 1, 0 };
     pxr::GfVec3f m_CameraUp = { 0, 0, 1 };
     pxr::GfVec3f m_CameraDir = { 1, 0, 0 };
-    float m_MoveSpeed = 5.f;      // movement speed in units/second
+    float m_CameraSpeedDecay = 0.9f;
+    float m_MoveSpeed = 0.0f;      // movement speed in units/second
     float m_RotateSpeed = .03f;  // mouse sensitivity in radians/pixel
+    float m_MoveMaxSpeed = 8.f;
+    float m_MoveAcceleration = 0.5f;
+    float m_MoveSpeedScale = 1.0f;
 };
 
 class FirstPersonCamera : public FreeCamera {
@@ -48,7 +53,7 @@ class FirstPersonCamera : public FreeCamera {
 private:
     std::pair<bool, pxr::GfMatrix4f> AnimateRoll(pxr::GfMatrix4f initialRotation);
     std::pair<bool, pxr::GfVec3f> AnimateTranslation(float deltaT);
-    void UpdateCamera(pxr::GfVec3f cameraMoveVec, pxr::GfMatrix4f cameraRotation);
+    void UpdateCamera(pxr::GfVec3f cameraMoveVec, pxr::GfMatrix4f cameraRotation, double delta_time);
 
     pxr::GfVec2f mousePos;
     pxr::GfVec2f mousePosPrev;

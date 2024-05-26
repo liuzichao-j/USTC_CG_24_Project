@@ -33,10 +33,18 @@ static void node_declare(NodeDeclarationBuilder& b)
 
 static void node_exec(ExeParams params)
 {
+    auto cameras = params.get_input<CameraArray>("Camera");
     auto meshes = params.get_input<MeshArray>("Meshes");
     MaterialMap materials = params.get_input<MaterialMap>("Materials");
 
-    Hd_USTC_CG_Camera* free_camera = get_free_camera(params);
+    Hd_USTC_CG_Camera* free_camera;
+
+    for (auto camera : cameras) {
+        if (camera->GetId() != SdfPath::EmptyPath()) {
+            free_camera = camera;
+            break;
+        }
+    }
 
     auto size = free_camera->_dataWindow.GetSize();
 
@@ -109,6 +117,8 @@ static void node_exec(ExeParams params)
     shader_handle->shader.setMat4("view", GfMatrix4f(free_camera->_viewMatrix));
     shader_handle->shader.setMat4("projection", GfMatrix4f(free_camera->_projMatrix));
 
+    std::cout << free_camera->_velocity << std::endl;
+
     for (int i = 0; i < meshes.size(); ++i) {
         auto mesh = meshes[i];
 
@@ -162,6 +172,7 @@ static void node_register()
     render_node_type_base(&ntype);
     ntype.node_execute = node_exec;
     ntype.declare = node_declare;
+
     nodeRegisterType(&ntype);
 }
 

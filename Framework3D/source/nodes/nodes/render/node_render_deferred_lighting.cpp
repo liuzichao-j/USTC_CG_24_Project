@@ -1,5 +1,4 @@
 // #define __GNUC__
-
 #include "NODES_FILES_DIR.h"
 #include "Nodes/node.hpp"
 #include "Nodes/node_declare.hpp"
@@ -7,6 +6,7 @@
 #include "Nodes/socket_types/basic_socket_types.hpp"
 #include "camera.h"
 #include "light.h"
+#include "pxr/base/gf/frustum.h"
 #include "pxr/imaging/glf/simpleLight.h"
 #include "pxr/imaging/hd/tokens.h"
 #include "render_node_base.h"
@@ -20,13 +20,11 @@ static void node_declare(NodeDeclarationBuilder& b)
 {
     b.add_input<decl::Camera>("Camera");
     b.add_input<decl::Lights>("Lights");
-
     b.add_input<decl::Texture>("Position");
     b.add_input<decl::Texture>("diffuseColor");
     b.add_input<decl::Texture>("MetallicRoughness");
     b.add_input<decl::Texture>("Normal");
     b.add_input<decl::Texture>("Shadow Maps");
-
     b.add_input<decl::String>("Lighting Shader").default_val("shaders/blinn_phong.fs");
     b.add_output<decl::Texture>("Color");
 }
@@ -44,6 +42,7 @@ static void node_exec(ExeParams params)
 {
     // Fetch all the information
 
+    auto cameras = params.get_input<CameraArray>("Camera");
     auto lights = params.get_input<LightArray>("Lights");
 
     auto position_texture = params.get_input<TextureHandle>("Position");
@@ -54,10 +53,8 @@ static void node_exec(ExeParams params)
 
     auto shadow_maps = params.get_input<TextureHandle>("Shadow Maps");
 
-    auto cameras = params.get_input<CameraArray>("Camera");
-
     Hd_USTC_CG_Camera* free_camera;
-
+    
     for (auto camera : cameras) {
         if (camera->GetId() != SdfPath::EmptyPath()) {
             free_camera = camera;
@@ -96,6 +93,11 @@ static void node_exec(ExeParams params)
     shader->shader.use();
     shader->shader.setVec2("iResolution", size);
 
+    auto camera_mat = free_camera->GetTransform();
+    GfVec3f camera_pos = { (float)camera_mat[3][0], (float)camera_mat[3][1],(float) camera_mat[3][2] };
+
+    shader->shader.setVec3("iCameraPos", camera_pos);
+
     shader->shader.setInt("diffuseColorSampler", 0);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, diffuseColor_texture->texture_id);
@@ -119,6 +121,8 @@ static void node_exec(ExeParams params)
     GfVec3f camPos = GfMatrix4f(free_camera->GetTransform()).ExtractTranslation();
     shader->shader.setVec3("camPos", camPos);
 
+    shader->shader.setInt("shadow_map_resolution", shadow_maps->desc.size[0]);
+
     GLuint lightBuffer;
     glGenBuffers(1, &lightBuffer);
     glBindBuffer(GL_SHADER_STORAGE_BUFFER, lightBuffer);
@@ -133,9 +137,27 @@ static void node_exec(ExeParams params)
             auto position4 = light_params.GetPosition();
             pxr::GfVec3f position3(position4[0], position4[1], position4[2]);
 
-            auto radius = lights[i]->Get(HdLightTokens->radius).Get<float>();
-            
-            light_vector.emplace_back(GfMatrix4f(), GfMatrix4f(), position3, 0.f, diffuse3, i);
+            // Copied from node_render_shadow_mapping.cpp
+            GfMatrix4f light_view_mat;
+            GfMatrix4f light_projection_mat;
+
+            if (lights[i]->GetLightType() == HdPrimTypeTokens->sphereLight) {
+                GfFrustum frustum;
+                GfVec3f light_position = { light_params.GetPosition()[0],
+                                           light_params.GetPosition()[1],
+                                           light_params.GetPosition()[2] };
+
+                light_view_mat =
+                    GfMatrix4f().SetLookAt(light_position, GfVec3f(0, 0, 0), GfVec3f(0, 0, 1));
+                frustum.SetPerspective(135.f, 1.0, 1, 25.f);
+                light_projection_mat = GfMatrix4f(frustum.ComputeProjectionMatrix());
+
+				// light_vector.emplace_back(light_projection_mat, light_view_mat, position3, 0.f, diffuse3, i);
+
+				auto radius = lights[i]->Get(HdLightTokens->radius).Get<float>();
+				
+				light_vector.emplace_back(GfMatrix4f(light_projection_mat), GfMatrix4f(light_view_mat), position3, radius, diffuse3, i);
+            }
 
             // You can add directional light here, and also the corresponding shadow map calculation
             // part.
@@ -161,11 +183,6 @@ static void node_exec(ExeParams params)
     glDeleteBuffers(1, &lightBuffer);
     glDeleteFramebuffers(1, &framebuffer);
     params.set_output("Color", color_texture);
-
-    auto shader_error = shader->shader.get_error();
-    if (!shader_error.empty()) {
-        throw std::runtime_error(shader_error);
-    }
 }
 
 static void node_register()

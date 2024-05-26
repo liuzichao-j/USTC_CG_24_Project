@@ -28,11 +28,22 @@ uniform sampler2DArray shadow_maps;
 uniform sampler2D position;
 
 // uniform float alpha;
-uniform vec3 camPos;
 
 uniform int light_count;
 
 layout(location = 0) out vec4 Color;
+
+
+float ShadowCalc(vec4 frag_pos_light_space, int light_index, float NdotL)
+{
+    float bias = max(0.05 * (1.0 - NdotL), 0.005);
+    vec3 proj_coords = frag_pos_light_space.xyz / frag_pos_light_space.w;
+    proj_coords = proj_coords * 0.5 + 0.5;
+    float closest_depth = texture(shadow_maps, vec3(proj_coords.xy, lights[light_index].shadow_map_id)).r;
+    float current_depth = frag_pos_light_space.z / frag_pos_light_space.w;
+    float shadow = current_depth - bias > closest_depth ? 1.0 : 0.0;
+    return shadow;
+}
 
 // https://stackoverflow.com/questions/9446888/best-way-to-detect-nans-in-opengl-shaderms
 bool isnan( float val )
@@ -54,13 +65,6 @@ void main()
 
     vec3 norm = normalize(texture(normalMapSampler, uv).xyz);
 
-    // if(isnan(norm.x))
-    // {
-    //     //background
-    //     Color = vec4(vec3(0.1), 1.0);
-    //     return;
-    // }
-
     vec3 diff_color = texture(diffuseColorSampler, uv).rgb;
     vec3 result = vec3(0.0);
 
@@ -74,7 +78,9 @@ void main()
 
     for(int i = 0; i < light_count; i++) 
     {
+        float shadow_map_value = texture(shadow_maps, vec3(uv, lights[i].shadow_map_id)).x;
         float dist_sq = dot(frag_pos - lights[i].position, frag_pos - lights[i].position);
+        vec4 frag_pos_light_space = lights[i].light_projection * lights[i].light_view * vec4(frag_pos, 1.0); 
 
         vec3 lightDir = normalize(lights[i].position - frag_pos);
         vec3 viewDir = normalize(iCameraPos - frag_pos);
@@ -82,12 +88,12 @@ void main()
         float NdotL = max(dot(norm, lightDir), 0.0);
         float NdotH = max(dot(norm, halfwayDir), 0.0);
         
-        vec3 ambient = lights[i].color * 0.1 * diff_color;
+        vec3 ambient = lights[i].color * 0.05 * diff_color;
         vec3 diff = lights[i].color * NdotL * diffuse;
         vec3 spec = lights[i].color * specular * pow(NdotH, glossiness * 31.0 + 1.0);
 
-        result += (ambient + diff + spec) / dist_sq;
-
+        float shadow = ShadowCalc(frag_pos_light_space, i, NdotL);
+        result += (ambient + (1.0 - shadow) * (diff + spec)) / dist_sq;
     }
     Color = vec4(result, 1.0);
     

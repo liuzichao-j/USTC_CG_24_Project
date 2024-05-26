@@ -2,6 +2,8 @@
 
 #include "config.h"
 #include "pxr/base/gf/matrix4f.h"
+#include "renderParam.h"
+#include <iostream>
 USTC_CG_NAMESPACE_OPEN_SCOPE
 using namespace pxr;
 void Hd_USTC_CG_Camera::Sync(
@@ -16,6 +18,10 @@ void Hd_USTC_CG_Camera::Sync(
 
     _inverseViewMatrix = GetTransform();
     _viewMatrix = _inverseViewMatrix.GetInverse();
+
+    _velocity = *(static_cast<Hd_USTC_CG_RenderParam*>(renderParam)->camera_velocity);
+    if (_velocity.GetLength() < 0.001f)
+        _velocity = { 0.0, 0.0, 0.0 };
 }
 
 static GfRect2i _GetDataWindow(const HdRenderPassStateSharedPtr& renderPassState)

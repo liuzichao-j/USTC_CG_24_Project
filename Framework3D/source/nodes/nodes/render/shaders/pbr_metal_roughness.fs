@@ -34,6 +34,8 @@ uniform int light_count;
 
 layout(location = 0) out vec4 Color;
 
+const float PI = 3.14159265359;
+
 // https://stackoverflow.com/questions/9446888/best-way-to-detect-nans-in-opengl-shaderms
 bool isnan( float val )
 {
@@ -41,6 +43,24 @@ bool isnan( float val )
   // important: some nVidias failed to cope with version below.
   // Probably wrong optimization.
   /*return ( val <= 0.0 || 0.0 <= val ) ? false : true;*/
+}
+
+// Metalness-Roughness workflow
+// https://zhuanlan.zhihu.com/p/304191958
+vec3 fresnelSchlick(float cosTheta, vec3 F0)
+{
+    return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
+}
+float DistributionGGX(float NdotH, float a)
+{
+    float a2 = a * a;
+    float denom = NdotH * NdotH * (a2 - 1.0) + 1.0;
+    denom = PI * denom * denom;
+    return step(NdotH, 0) * a2 / denom;
+}
+float SchlickGGX(float cosTheta, float k)
+{
+    return cosTheta / (cosTheta * (1 - k) + k);
 }
 
 void main() 
@@ -51,43 +71,52 @@ void main()
     vec4 metalnessRoughness = texture(metallicRoughnessSampler,uv);
     float metal = metalnessRoughness.x;
     float roughness = metalnessRoughness.y;
+    float rough_sq = roughness * roughness;
 
     vec3 norm = normalize(texture(normalMapSampler, uv).xyz);
-
-    // if(isnan(norm.x))
-    // {
-    //     //background
-    //     Color = vec4(vec3(0.1), 1.0);
-    //     return;
-    // }
+    if(isnan(norm.x))
+    {
+        //background
+        Color = vec4(vec3(0.1), 1.0);
+        return;
+    }
 
     vec3 diff_color = texture(diffuseColorSampler, uv).rgb;
     vec3 result = vec3(0.0);
 
-    //https://kcoley.github.io/glTF/extensions/2.0/Khronos/KHR_materials_pbrSpecularGlossiness/examples/convert-between-workflows/
-    const vec3 dielectricSpecular = vec3(0.04, 0.04, 0.04);
-    const float epsilon = 1e-6;
-    vec3 specular = mix(dielectricSpecular, diff_color, metal);
-    vec3 oneMinusSpecularStrength = 1.0 - specular; 
-    vec3 diffuse = diff_color * (1 - dielectricSpecular) * (1 - metal) / max(oneMinusSpecularStrength, epsilon);
-    float glossiness = 1 - roughness;
-
     for(int i = 0; i < light_count; i++) 
     {
+        float shadow_map_value = texture(shadow_maps, vec3(uv, lights[i].shadow_map_id)).x;
+
         float dist_sq = dot(frag_pos - lights[i].position, frag_pos - lights[i].position);
 
         vec3 lightDir = normalize(lights[i].position - frag_pos);
         vec3 viewDir = normalize(iCameraPos - frag_pos);
         vec3 halfwayDir = normalize(lightDir + viewDir);
-        float NdotL = max(dot(norm, lightDir), 0.0);
-        float NdotH = max(dot(norm, halfwayDir), 0.0);
-        
-        vec3 ambient = lights[i].color * 0.1 * diff_color;
-        vec3 diff = lights[i].color * NdotL * diffuse;
-        vec3 spec = lights[i].color * specular * pow(NdotH, glossiness * 31.0 + 1.0);
+        float VdotH = max(dot(viewDir, halfwayDir), 0.0);
+        float NdotH = max(dot(norm, halfwayDir), 0.0);      // Blinn-Phong 高光
+        float NdotL = max(dot(norm, lightDir), 0.0);        // 漫反射强度
+        float NdotV = max(dot(norm, viewDir), 0.0);
 
-        result += (ambient + diff + spec) / dist_sq;
+        vec3 F0 = vec3(0.04);
+        F0 = mix(F0, diff_color, metal);
+        vec3 F = fresnelSchlick(VdotH, F0);
+        vec3 kd = (1 - F) * (1 - metal);
 
+        float D = DistributionGGX(NdotH, rough_sq);
+
+        float k_dir = pow(rough_sq + 1, 2) / 8;
+        float ggx1 = SchlickGGX(NdotL, k_dir);
+        float ggx2 = SchlickGGX(NdotV, k_dir);
+        float G = ggx1 * ggx2;
+        vec3 FDG = F * D * G;
+
+        vec3 ambient = vec3(0.1);
+        vec3 diffuse = diff_color * kd / PI;
+        vec3 spec = FDG / max(4 * NdotL * NdotV, 0.001);
+
+        result += (1 - metal) * diff_color * ambient / PI / dist_sq;
+        result += (diffuse + spec) * lights[i].color * NdotL / dist_sq;
     }
     Color = vec4(result, 1.0);
     
