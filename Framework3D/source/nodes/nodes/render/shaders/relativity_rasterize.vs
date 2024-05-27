@@ -11,7 +11,8 @@ out vec3 vertexNormal;
 out vec2 vTexcoord;
 
 uniform float lightSpeed;
-uniform vec3 cameraSpeed;
+uniform vec3 camPos;
+uniform vec3 camSpeed;
 
 uniform mat4 model;
 uniform mat4 view;
@@ -22,14 +23,12 @@ vec4 vPosition = model * vec4(aPos, 1.0);
 vertexPosition = vPosition.xyz / vPosition.w;
 
 // Constants
-vec3 beta = cameraSpeed / lightSpeed;
+vec3 beta = camSpeed / lightSpeed;
 float gamma = 1 / sqrt(1 - dot(beta, beta));
 
-// Get camera position
-vec3 camPos = vec3(view[3]);
 // Get the vector from the camera to the vertex
 vec3 dir = vertexPosition - camPos;
-if(length(beta) > 0.001)
+if(length(beta) > 0)
 {
 dir = normalize(dir);
 float dist = length(dir);
@@ -40,6 +39,7 @@ dir = normalize(dir - gamma * beta + (gamma - 1) * beta * dot(beta, dir) / dot(b
 dir = dir * paradist / dot(beta, dir) * length(beta);
 }
 vertexPosition = camPos + dir;
+
 vPosition = vec4(vertexPosition * vPosition.w, vPosition.w);
 
 gl_Position = projection * view * vPosition;

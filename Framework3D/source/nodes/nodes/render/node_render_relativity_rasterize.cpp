@@ -119,9 +119,21 @@ static void node_exec(ExeParams params)
     shader_handle->shader.setMat4("view", GfMatrix4f(free_camera->_viewMatrix));
     shader_handle->shader.setMat4("projection", GfMatrix4f(free_camera->_projMatrix));
 
-    // std::cout << free_camera->_velocity << std::endl;
-    shader_handle->shader.setVec3("cameraSpeed", free_camera->_velocity);
+    auto camera_mat = free_camera->GetTransform();
+    GfVec3f camera_pos = { (float)camera_mat[3][0],
+                           (float)camera_mat[3][1],
+                           (float)camera_mat[3][2] };
+
+    shader_handle->shader.setVec3("camPos", camera_pos);
+
+    if (free_camera->_velocity.GetLength() >= speed_of_light) {
+        free_camera->_velocity.Normalize();
+        free_camera->_velocity *= speed_of_light;
+    }
+
+    shader_handle->shader.setVec3("camSpeed", free_camera->_velocity);
     shader_handle->shader.setFloat("lightSpeed", speed_of_light);
+    // std::cout << "speed: " << free_camera->_velocity << "; place: " << camera_pos << "; light: " << speed_of_light << std::endl;
 
     for (int i = 0; i < meshes.size(); ++i) {
         auto mesh = meshes[i];
