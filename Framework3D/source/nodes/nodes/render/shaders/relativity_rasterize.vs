@@ -30,13 +30,16 @@ float gamma = 1 / sqrt(1 - dot(beta, beta));
 vec3 dir = vertexPosition - camPos;
 if(length(beta) > 0)
 {
-dir = normalize(dir);
 float dist = length(dir);
-float paradist = gamma * (dot(beta, dir) / length(beta) - length(beta) * length(dir));
+
+dir = dir + gamma*gamma/(gamma+1) * dot(beta, dir) * beta - gamma * dist * beta;
+
+//dir = normalize(dir);
+//float paradist = gamma * (dot(beta, dir) / length(beta) - length(beta) * length(dir));
 // Change the direction
-dir = normalize(dir - gamma * beta + (gamma - 1) * beta * dot(beta, dir) / dot(beta, beta));
+//dir = normalize(dir - gamma * beta + (gamma - 1) * beta * dot(beta, dir) / dot(beta, beta));
 // Get the new position
-dir = dir * paradist / dot(beta, dir) * length(beta);
+//dir = dir * paradist / dot(beta, dir) * length(beta);
 }
 vertexPosition = camPos + dir;
 
