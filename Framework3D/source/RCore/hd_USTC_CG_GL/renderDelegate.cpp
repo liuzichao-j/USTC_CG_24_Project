@@ -345,6 +345,9 @@ void Hd_USTC_CG_RenderDelegate::SetRenderSetting(const TfToken& key, const VtVal
     if (key == TfToken("CameraVelocity")) {
         _renderParam->camera_velocity = static_cast<GfVec3f*>(value.Get<void*>());
     }
+    if (key == TfToken("TimeCode")) {
+        _renderParam->time_code = static_cast<float*>(value.Get<void*>());
+    }
 }
 
 USTC_CG_NAMESPACE_CLOSE_SCOPE

@@ -69,6 +69,7 @@ class Hd_USTC_CG_RenderParam final : public HdRenderParam {
     pxr::VtArray<Hd_USTC_CG_Camera *> *cameras = nullptr;
     pxr::VtArray<Hd_USTC_CG_Mesh *> *meshes = nullptr;
     GfVec3f *camera_velocity = nullptr;
+    float *time_code = nullptr;
     pxr::TfHashMap<SdfPath, Hd_USTC_CG_Material *, TfHash> *materials = nullptr;
 
    private:

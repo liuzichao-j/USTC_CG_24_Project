@@ -129,6 +129,7 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
     renderer_->SetRendererSetting(TfToken("RenderNodeTree"), VtValue((void*)node_tree));
     renderer_->SetRendererSetting(TfToken("RenderNodeTreeExecutor"), VtValue((void*)executor));
     renderer_->SetRendererSetting(TfToken("CameraVelocity"), VtValue((void*)&(free_camera_->m_CameraVelocity)));
+    renderer_->SetRendererSetting(TfToken("TimeCode"), VtValue((void*)&(timecode)));
 
     _renderParams.enableLighting = true;
     _renderParams.enableSceneMaterials = true;
