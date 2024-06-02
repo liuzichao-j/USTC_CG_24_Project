@@ -55,6 +55,7 @@ void Hd_USTC_CG_Renderer::Render(HdRenderThread* renderThread)
         try_fill_info("render_scene_meshes", render_param->meshes);
         try_fill_info("render_scene_materials", render_param->materials);
         try_fill_info("render_time_code", render_param->time_code);
+        try_fill_info("render_scene_usd", &(render_param->global_usd_stage));
     }
     executor->execute_tree(node_tree);
     

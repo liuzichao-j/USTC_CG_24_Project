@@ -40,6 +40,7 @@
 #include "renderBuffer.h"
 #include "renderPass.h"
 #include "renderer.h"
+#include "pxr/usd/usd/prim.h"
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 using namespace pxr;
@@ -347,6 +348,12 @@ void Hd_USTC_CG_RenderDelegate::SetRenderSetting(const TfToken& key, const VtVal
     }
     if (key == TfToken("TimeCode")) {
         _renderParam->time_code = static_cast<float*>(value.Get<void*>());
+    }
+    if (key == TfToken("USDPrim")) {
+        _renderParam->usd_root = static_cast<pxr::UsdPrim*>(value.Get<void*>());
+    }
+    if (key == TfToken("GlobalUsdStage")) {
+        _renderParam->global_usd_stage = static_cast<pxr::UsdStageWeakPtr*>(value.Get<void*>());
     }
 }
 

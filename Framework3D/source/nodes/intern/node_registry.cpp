@@ -5,6 +5,9 @@
 #include "USTC_CG.h"
 #include "Utils/Macro/map.h"
 #include "rich_type_buffer.hpp"
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usdGeom/mesh.h>
+
 USTC_CG_NAMESPACE_OPEN_SCOPE
 namespace node_mass_spring {
     class MassSpring;
@@ -230,6 +233,13 @@ static SocketTypeInfo* make_socket_type_Lights()
 {
     SocketTypeInfo* socktype = make_standard_socket_type(SocketType::Lights);
     socktype->cpp_type = &CPPType::get<LightArray>();
+    return socktype;
+}
+
+static SocketTypeInfo* make_socket_type_Usd()
+{
+    SocketTypeInfo* socktype = make_standard_socket_type(SocketType::Usd);
+    socktype->cpp_type = &CPPType::get<pxr::UsdStageWeakPtr*>();
     return socktype;
 }
 

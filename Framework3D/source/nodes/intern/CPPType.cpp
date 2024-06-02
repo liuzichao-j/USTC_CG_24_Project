@@ -9,6 +9,7 @@
 #include "Utils/Functions/GenericPointer.hpp"
 #include "Utils/Macro/map.h"
 #include "rich_type_buffer.hpp"
+#include "pxr/usd/usd/prim.h"
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 
@@ -44,6 +45,8 @@ BLI_CPP_TYPE_MAKE(std::shared_ptr<node_sph_fluid::SPHBase>, CPPTypeFlags::Equali
 BLI_CPP_TYPE_MAKE(std::shared_ptr<node_character_animation::Animator>, CPPTypeFlags::EqualityComparable)
 BLI_CPP_TYPE_MAKE(GOperandBase, CPPTypeFlags::EqualityComparable)
 BLI_CPP_TYPE_MAKE(pxr::UsdStageRefPtr, CPPTypeFlags::EqualityComparable)
+BLI_CPP_TYPE_MAKE(pxr::UsdStageWeakPtr*, CPPTypeFlags::EqualityComparable)
+BLI_CPP_TYPE_MAKE(pxr::UsdPrim, CPPTypeFlags::EqualityComparable)
 BLI_CPP_TYPE_MAKE(GMutablePointer, CPPTypeFlags::None)
 
 BLI_CPP_TYPE_MAKE(MeshArray, CPPTypeFlags::EqualityComparable)
@@ -86,6 +89,7 @@ void register_cpp_types()
     BLI_CPP_TYPE_REGISTER(MeshArray);
     BLI_CPP_TYPE_REGISTER(CameraArray);
     BLI_CPP_TYPE_REGISTER(MaterialMap);
+    BLI_CPP_TYPE_REGISTER(pxr::UsdStageWeakPtr*);
     BLI_CPP_TYPE_REGISTER(std::shared_ptr<node_mass_spring::MassSpring>);
     BLI_CPP_TYPE_REGISTER(std::shared_ptr<node_sph_fluid::SPHBase>);
     BLI_CPP_TYPE_REGISTER(std::shared_ptr<node_character_animation::Animator>);

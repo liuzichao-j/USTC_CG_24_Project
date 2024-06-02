@@ -11,6 +11,8 @@
 #include "pxr/usd/usd/stage.h"
 #include "pxr/usdImaging/usdImagingGL/engine.h"
 #include <iostream>
+#include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/primvarsAPI.h>
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 class NodeTree;
@@ -123,6 +125,7 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
 
     GfMatrix4d projectionMatrix = frustum.ComputeProjectionMatrix();
     GfMatrix4d viewMatrix = frustum.ComputeViewMatrix();
+    UsdPrim root = GlobalUsdStage::global_usd_stage->GetPseudoRoot();
 
     renderer_->SetCameraState(viewMatrix, projectionMatrix);
     renderer_->SetRendererAov(HdAovTokens->color);
@@ -130,6 +133,10 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
     renderer_->SetRendererSetting(TfToken("RenderNodeTreeExecutor"), VtValue((void*)executor));
     renderer_->SetRendererSetting(TfToken("CameraVelocity"), VtValue((void*)&(free_camera_->m_CameraVelocity)));
     renderer_->SetRendererSetting(TfToken("TimeCode"), VtValue((void*)&(timecode)));
+    renderer_->SetRendererSetting(TfToken("USDPrim"), VtValue((void*)&(root)));
+    UsdStageWeakPtr global_usd_stage_weak = GlobalUsdStage::global_usd_stage;
+    renderer_->SetRendererSetting(TfToken("GlobalUsdStage"), VtValue((void*)(&global_usd_stage_weak)));
+
 
     _renderParams.enableLighting = true;
     _renderParams.enableSceneMaterials = true;
@@ -160,7 +167,6 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
     GfVec4f sceneAmbient = { 0.01, 0.01, 0.01, 1.0 };
     renderer_->SetLightingState(lights, material, sceneAmbient);
 
-    UsdPrim root = GlobalUsdStage::global_usd_stage->GetPseudoRoot();
     renderer_->Render(root, _renderParams);
 
     renderer_->SetPresentationOutput(pxr::TfToken("OpenGL"), pxr::VtValue(fbo));
