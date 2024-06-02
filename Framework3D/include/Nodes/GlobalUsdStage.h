@@ -11,7 +11,9 @@ USTC_CG_NAMESPACE_OPEN_SCOPE
 struct GlobalUsdStage {
     static pxr::UsdStageRefPtr global_usd_stage;
 
-    static constexpr int timeCodesPerSecond = 30;
+    static constexpr int timeCodesPerSecond = 15;
+
+    static inline float speed_of_light = 1000.0f;
 
 };
 

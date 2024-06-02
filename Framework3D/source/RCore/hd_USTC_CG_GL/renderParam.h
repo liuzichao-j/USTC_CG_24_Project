@@ -73,6 +73,7 @@ class Hd_USTC_CG_RenderParam final : public HdRenderParam {
     pxr::UsdStageWeakPtr *global_usd_stage = nullptr;
     float *time_code = nullptr;
     UsdPrim *usd_root = nullptr;
+    float *speed_of_light = nullptr;
     pxr::TfHashMap<SdfPath, Hd_USTC_CG_Material *, TfHash> *materials = nullptr;
 
    private:

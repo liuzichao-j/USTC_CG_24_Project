@@ -355,6 +355,9 @@ void Hd_USTC_CG_RenderDelegate::SetRenderSetting(const TfToken& key, const VtVal
     if (key == TfToken("GlobalUsdStage")) {
         _renderParam->global_usd_stage = static_cast<pxr::UsdStageWeakPtr*>(value.Get<void*>());
     }
+    if (key == TfToken("SpeedOfLight")) {
+        _renderParam->speed_of_light = static_cast<float*>(value.Get<void*>());
+    }
 }
 
 USTC_CG_NAMESPACE_CLOSE_SCOPE

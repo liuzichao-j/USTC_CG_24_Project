@@ -136,7 +136,8 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
     renderer_->SetRendererSetting(TfToken("USDPrim"), VtValue((void*)&(root)));
     UsdStageWeakPtr global_usd_stage_weak = GlobalUsdStage::global_usd_stage;
     renderer_->SetRendererSetting(TfToken("GlobalUsdStage"), VtValue((void*)(&global_usd_stage_weak)));
-
+    float speed_of_light = GlobalUsdStage::speed_of_light;
+    renderer_->SetRendererSetting(TfToken("SpeedOfLight"), VtValue((void*)&(speed_of_light)));
 
     _renderParams.enableLighting = true;
     _renderParams.enableSceneMaterials = true;

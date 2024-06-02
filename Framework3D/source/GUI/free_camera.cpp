@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include "Nodes/GlobalUsdStage.h"
 #include "GCore/Components.h"
 #include "imgui.h"
 #include "pxr/base/gf/frustum.h"
@@ -57,6 +58,9 @@ void FirstPersonCamera::MouseButtonUpdate(int button)
 
 std::pair<bool, pxr::GfVec3f> FirstPersonCamera::AnimateTranslation(float deltaT)
 {
+    m_MoveMaxSpeed = GlobalUsdStage::speed_of_light;
+    m_MoveAcceleration = std::min(1.0f, m_MoveMaxSpeed / 10.f);
+
     bool cameraDirty = false;
     float moveStep = deltaT * m_MoveAcceleration;
     pxr::GfVec3f cameraMoveVec = m_CameraVelocity * deltaT;

@@ -17,7 +17,6 @@ static void node_declare(NodeDeclarationBuilder& b)
     b.add_input<decl::Camera>("Camera");
     b.add_input<decl::Meshes>("Meshes");
     b.add_input<decl::Materials>("Materials");
-    b.add_input<decl::Float>("Anything (Float)").default_val(0.1f).min(0.0f).max(1.0f);
 }
 
 static void node_exec(ExeParams params)
@@ -27,9 +26,6 @@ static void node_exec(ExeParams params)
     auto cameras = params.get_input<CameraArray>("Camera");
     auto meshes = params.get_input<MeshArray>("Meshes");
     MaterialMap materials = params.get_input<MaterialMap>("Materials");
-    auto anyfloat = params.get_input<float>("Anything (Float)");
-
-    std::cout << "Anything (Float): " << anyfloat << std::endl;
 
     for (auto&& camera : cameras) {
         std::cout << camera->GetTransform() << std::endl;
