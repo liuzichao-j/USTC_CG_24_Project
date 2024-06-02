@@ -201,9 +201,30 @@ void GeoNodeSystemExecution::try_execution()
                 }
             };
             try_fill_info("geom_time_code", &cached_last_frame_);
+            try_fill_info("geom_speed_of_light_get", &GlobalUsdStage::speed_of_light);
         }
 
         executor->execute_tree(node_tree.get());
+
+        float speed_of_light_set = 0;
+
+        for (auto&& node : node_tree->nodes) {
+            auto try_fetch_info = [&node, this](const char* id_name, void* data) {
+                if (std::string(node->typeinfo->id_name) == id_name) {
+                    assert(node->inputs.size() == 1);
+                    auto output_socket = node->inputs[0];
+                    executor->sync_node_to_external_storage(output_socket, data);
+                    return true;
+                }
+                return false;
+            };
+
+            if (try_fetch_info("geom_speed_of_light_set", &speed_of_light_set)) {
+                GlobalUsdStage::speed_of_light = speed_of_light_set;
+                std::cout << "Speed of light set to: " << speed_of_light_set << std::endl;
+                break;
+            }
+        }
 
         float time_advected = 0;
 
@@ -221,6 +242,7 @@ void GeoNodeSystemExecution::try_execution()
             };
 
             if (try_fetch_info("geom_time_gain", &time_advected)) {
+                std::cout << "Time advected " << time_advected << std::endl;
                 has_time_advection = true;
                 break;
             }
