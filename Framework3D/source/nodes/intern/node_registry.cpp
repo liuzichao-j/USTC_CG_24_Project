@@ -285,6 +285,13 @@ static SocketTypeInfo* make_socket_type_MassSpringSocket()
     return socktype;
 }
 
+static SocketTypeInfo* make_socket_type_RelativityMassSpringSocket()
+{
+    SocketTypeInfo* socktype = make_standard_socket_type(SocketType::RelativityMassSpringSocket);
+    socktype->cpp_type = &CPPType::get<std::shared_ptr<node_relativity_mass_spring::MassSpring>>();
+    return socktype;
+}
+
 static SocketTypeInfo* make_socket_type_SPHFluidSocket()
 {
     SocketTypeInfo* socktype = make_standard_socket_type(SocketType::SPHFluidSocket);
