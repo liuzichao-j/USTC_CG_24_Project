@@ -1,6 +1,8 @@
 #include "animator.h"
 #include <cassert>
 
+#include <queue>
+
 namespace USTC_CG::node_character_animation {
 
 using namespace pxr;
@@ -13,7 +15,9 @@ Joint::Joint(int idx, string name, int parent_idx, const GfMatrix4f& bind_transf
 void Joint::compute_world_transform()
 {
     // ---------- (HW TODO) Compute world space trasform of this joint -----------------
-
+    if (parent_idx_ == -1)
+        world_transform_ = local_transform_;
+    else world_transform_ = local_transform_ * parent_ -> get_world_transform();
     // --------------------------------------------------------------------------------
 }
 
@@ -21,6 +25,17 @@ void JointTree::compute_world_transforms_for_each_joint()
 {
     // ----------- (HW_TODO) Traverse all joint and compute its world space transform ---
 	// Call compute_world_transform for each joint
+    std::queue<std::shared_ptr<Joint>> q;
+    q.push(get_root());
+    get_root()->compute_world_transform();
+    while (!q.empty()) {
+        auto x = q.front();
+        q.pop();
+        for (auto& c : x->children_) {
+            c->compute_world_transform();
+            q.push(c);
+        }
+    }
     // ---------------------------------------------
 }
 
@@ -75,7 +90,7 @@ Animator::Animator(const shared_ptr<MeshComponent> mesh, const shared_ptr<SkelCo
 		joint_tree_.add_joint(i, joint_name, parent_idx, GfMatrix4f(skel->bindTransforms[i]));
 	}
 
-	joint_tree_.print(); 
+	// joint_tree_.print(); 
 }
 
 void Animator::step(const shared_ptr<SkelComponent> skel)
@@ -92,7 +107,21 @@ void Animator::update_mesh_vertices()
 	// ----------- (HW_TODO) Update mesh vertices according to the current joint transforms ----
 	// 1. get skel_->jointIndices and skel_->jointWeight;
 	// 2. For each vertex, compute the new position by transforming the rest position with the joint transforms
-	// 2. Update the vertex position in the mesh
+	// 3. Update the vertex position in the mesh
+    auto &indices = skel_->jointIndices;
+    auto &weight = skel_->jointWeight;
+    auto& vertices = mesh_->vertices;
+    auto n = indices.size() / vertices.size();
+    GfMatrix4f matrix;
+    for (auto i = 0; i < vertices.size(); ++i) {
+        auto x=GfVec3f(0,0,0);
+        for (auto j = i * n; j < i * n + n; ++j) {
+            auto joint = joint_tree_.get_joint(indices[j]);
+            x += weight[j] * joint->get_world_transform().TransformAffine(
+                 ((joint->get_bind_transform().GetInverse()).TransformAffine(vertices[i])));
+        }
+        vertices[i] = x;
+    }
 	// --------------------------------------------------------------------------------
 }
 
