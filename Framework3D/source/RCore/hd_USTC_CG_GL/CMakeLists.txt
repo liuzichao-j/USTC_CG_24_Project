@@ -16,6 +16,7 @@ pxr_plugin(${PXR_PACKAGE}
         ${TBB_tbb_LIBRARY}
         usdLux
         nodes
+        GCore
         RCore
         usdImaging
 
