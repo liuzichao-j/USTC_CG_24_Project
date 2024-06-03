@@ -139,7 +139,11 @@ static void node_exec(ExeParams params)
             }
 
             // convert it to HdMesh
-            auto CG_Mesh = std::make_shared<Hd_USTC_CG_Mesh>(mesh.GetPath());
+            // auto CG_Mesh = std::make_shared<Hd_USTC_CG_Mesh>(mesh.GetPath());
+            // meshes.push_back(CG_Mesh.get());
+
+            auto CG_Mesh = new Hd_USTC_CG_Mesh(mesh.GetPath());
+            meshes.push_back(CG_Mesh);
         }
     }
     params.set_output("Meshes", meshes);

@@ -10,6 +10,7 @@ layout(location = 5) out vec3 normal;
 in vec3 vertexPosition;
 in vec3 vertexNormal;
 in vec2 vTexcoord;
+// in vec3 vertexVelocity;
 uniform mat4 projection;
 uniform mat4 view;
 
@@ -120,6 +121,7 @@ void main() {
 
 // Constants
 vec3 beta = camSpeed / lightSpeed;
+// vec3 beta = (camSpeed - vertexVelocity) / lightSpeed;
 float gamma = 1 / sqrt(1 - dot(beta, beta));
 float multiplier = 1;
 if (length(beta) > 0)
