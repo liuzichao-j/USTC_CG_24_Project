@@ -8,6 +8,11 @@ GOperandBase::GOperandBase(const GOperandBase& operand)
 {
     *(this) = operand;
 }
+GOperandBase::~GOperandBase()
+{
+}
+
+
 
 GOperandBase::GOperandBase(GOperandBase&& operand) noexcept
 {

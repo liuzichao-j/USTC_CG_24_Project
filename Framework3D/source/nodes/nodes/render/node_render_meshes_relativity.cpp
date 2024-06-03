@@ -49,12 +49,25 @@ namespace USTC_CG::node_scene_meshes_relativity {
 static void node_declare(NodeDeclarationBuilder& b)
 {
     b.add_input<decl::Usd>("Global USD Stage");
+    b.add_input<decl::Camera>("Camera");
+    b.add_input<decl::Float>("Speed of Light").default_val(1.0f);
     b.add_input<decl::Float>("Time Code");
     b.add_output<decl::Meshes>("Meshes");
 }
 
 static void node_exec(ExeParams params)
 {
+    auto cameras = params.get_input<CameraArray>("Camera");
+    auto speed_of_light = params.get_input<float>("Speed of Light");
+
+    Hd_USTC_CG_Camera* free_camera;
+
+    for (auto camera : cameras) {
+        if (camera->GetId() != SdfPath::EmptyPath()) {
+            free_camera = camera;
+            break;
+        }
+    }
     float time_code = params.get_input<float>("Time Code");
     float time = time_code;
 
@@ -65,11 +78,21 @@ static void node_exec(ExeParams params)
     pxr::UsdStageWeakPtr stage = *stage_ptr;
 
     if (stage) {
-        for (auto mesh : stage->Traverse())
+        for (auto stage_elm : stage->Traverse())
         {
-			std::cout << "mesh: " << mesh.GetPath().GetText() << std::endl;
+            TfToken typeId = stage_elm.GetTypeName();
+            SdfPath sdf_path = stage_elm.GetPath();
+			std::cout << "reading: " << sdf_path.GetText() << std::endl;
+			if (typeId == HdPrimTypeTokens->mesh) {
+				auto prim = stage->GetPrimAtPath(sdf_path);
+				pxr::UsdGeomMesh usdgeom(prim);
+
+
+				// VBO, copy to gpu,...
+
+			}
         }
-		throw std::runtime_error("Relativity Mesh not implemented.");
+		throw std::runtime_error("Not implemented.");
     }
     else {
 		throw std::runtime_error("Unable to read Global USD Stage.");

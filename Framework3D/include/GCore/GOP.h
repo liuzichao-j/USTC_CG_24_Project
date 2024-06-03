@@ -22,7 +22,8 @@ public:
     {
     }
 
-    virtual ~GOperandBase() = default;
+    virtual ~GOperandBase();
+
 
     GOperandBase(const GOperandBase& operand);
     GOperandBase(GOperandBase&& operand) noexcept;

@@ -29,11 +29,41 @@
 #include "USTC_CG.h"
 #include "Utils/Logging/Logging.h"
 #include "context.h"
+#include "../camera.h"
 #include "pxr/base/gf/vec2f.h"
 #include "pxr/imaging/hd/extComputationUtils.h"
 #include "pxr/imaging/hd/instancer.h"
 #include "pxr/imaging/hd/meshUtil.h"
 #include "pxr/imaging/hd/smoothNormals.h"
+#include <pxr/usd/usd/primRange.h>
+#include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/primvarsAPI.h>
+#include "pxr/usd/usd/primRange.h"
+#include "pxr/usd/usd/stage.h"
+#include "pxr/usd/usd/prim.h"
+#include "pxr/usd/usdGeom/mesh.h"
+#include "pxr/usd/usdGeom/primvarsAPI.h"
+#include "pxr/usd/usdShade/material.h"
+#include "pxr/usd/usdShade/materialBindingAPI.h"
+#include "pxr/usd/usdSkel/animQuery.h"
+#include "pxr/usd/usdSkel/cache.h"
+#include <pxr/base/gf/matrix4f.h>
+#include <pxr/base/gf/rotation.h>
+#include <pxr/usd/usd/prim.h>
+#include <pxr/usd/usd/primRange.h>
+#include <pxr/usd/usd/stage.h>
+#include <pxr/usd/usdGeom/mesh.h>
+#include <pxr/usd/usdGeom/primvarsAPI.h>
+#include <pxr/usd/usdShade/material.h>
+#include <pxr/usd/usdShade/materialBindingAPI.h>
+#include <pxr/usd/usdSkel/animQuery.h>
+#include <pxr/usd/usdSkel/cache.h>
+#include <pxr/usd/usdSkel/skeleton.h>
+#include "../renderParam.h"
+#include "Nodes/GlobalUsdStage.h"
+
 USTC_CG_NAMESPACE_OPEN_SCOPE
 using namespace pxr;
 Hd_USTC_CG_Mesh::Hd_USTC_CG_Mesh(const SdfPath& id)
@@ -162,11 +192,110 @@ void Hd_USTC_CG_Mesh::Sync(
         _SetMaterialId(sceneDelegate, this);
     }
 
-    if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
-        VtValue value = sceneDelegate->Get(id, HdTokens->points);
-        points = value.Get<VtVec3fArray>();
+    const auto& render_param = ((Hd_USTC_CG_RenderParam*)renderParam);
+    auto stage = *render_param->global_usd_stage;
 
-        _normalsValid = false;
+    bool able_relativity_light = false;
+    pxr::UsdGeomMesh usdgeom;
+
+    if (GlobalUsdStage::enable_limited_light_speed_transform) 
+    {
+        if (stage) {
+            for (auto stage_elm : stage->Traverse()) {
+                TfToken typeId = stage_elm.GetTypeName();
+                SdfPath sdf_path = stage_elm.GetPath();
+                if (id == sdf_path) {
+                    auto prim = stage->GetPrimAtPath(sdf_path);
+                    usdgeom = pxr::UsdGeomMesh(prim);
+                    if (usdgeom)
+                        able_relativity_light = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (able_relativity_light)
+    {
+		float time = *render_param->time_code;
+		Hd_USTC_CG_Camera* free_camera;
+		for (auto camera : *render_param->cameras) {
+			if (camera->GetId() != SdfPath::EmptyPath()) {
+				free_camera = camera;
+				break;
+			}
+		}
+
+		GfVec3d camera_position = free_camera->GetTransform().ExtractTranslation();
+
+		pxr::VtArray<pxr::GfVec3f> vertices;
+		pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(time);
+		usdgeom.GetPointsAttr().Get(&vertices, time); 
+
+        float c = *render_param->speed_of_light;
+
+        const int itr_n = 3;
+        const float dt = 0.02;
+        std::cout << "Update time " << time << std::endl;
+        for (int i = 0; i < points.size(); i++)
+        {
+			float t = time;
+            for (int itr = 1; itr <= itr_n; itr++)
+            {
+                // Newton Iteration
+                float prev_t = std::max(t - dt, 0.0f);
+				float real_dt = t - prev_t;
+				if (real_dt <= 0)
+				{
+					t = 0.0f;
+					break;
+                }
+
+				pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(t);
+				pxr::GfMatrix4d prev_vert_transform = usdgeom.ComputeLocalToWorldTransform(prev_t);
+				pxr::VtArray<pxr::GfVec3f> vertices_tmp;
+				pxr::VtArray<pxr::GfVec3f> prev_vertices_tmp;
+				usdgeom.GetPointsAttr().Get(&vertices_tmp, t); 
+				usdgeom.GetPointsAttr().Get(&prev_vertices_tmp, prev_t); 
+
+                GfVec3d x = vert_transform.TransformAffine(vertices_tmp[i]);
+                GfVec3d prev_x = prev_vert_transform.TransformAffine(prev_vertices_tmp[i]);
+                GfVec3d v = (x - prev_x) / real_dt;
+                double d = (x - camera_position).GetLength();
+                double prev_d = (prev_x - camera_position).GetLength();
+
+                double f = d + c * (t - time);
+                double df = (d - prev_d) / real_dt + c;
+                double step = 1;
+                if (df != 0) step = f / df;
+                t -= step;
+                if (t < 0.0f) 
+                {
+					t = 0.0f;
+					break;
+                }
+			}
+			pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(t);
+			pxr::VtArray<pxr::GfVec3f> vertices_tmp;
+			usdgeom.GetPointsAttr().Get(&vertices_tmp, t); 
+            vertices[i] = vert_transform.TransformAffine(vertices_tmp[i]);
+			if(i == 3) std::cout << "#" << i << " dt " << (t - time) << std::endl;
+		}
+		points = vertices;
+		transform.SetIdentity();
+		std::cout << "[" << path << "] updated point in relativity" << std::endl;
+    }
+    else {
+		if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {
+            VtValue value = sceneDelegate->Get(id, HdTokens->points);
+            points = value.Get<VtVec3fArray>();
+
+            _normalsValid = false;
+		}
+		if (HdChangeTracker::IsInstancerDirty(*dirtyBits, id) ||
+			HdChangeTracker::IsTransformDirty(*dirtyBits, id)) {
+			transform = GfMatrix4f(sceneDelegate->GetTransform(id));
+		}
     }
 
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
@@ -175,10 +304,6 @@ void Hd_USTC_CG_Mesh::Sync(
         meshUtil.ComputeTriangleIndices(&triangulatedIndices, &trianglePrimitiveParams);
         _normalsValid = false;
         _adjacencyValid = false;
-    }
-    if (HdChangeTracker::IsInstancerDirty(*dirtyBits, id) ||
-        HdChangeTracker::IsTransformDirty(*dirtyBits, id)) {
-        transform = GfMatrix4f(sceneDelegate->GetTransform(id));
     }
 
     if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->normals) ||
@@ -230,6 +355,9 @@ void Hd_USTC_CG_Mesh::RefreshGLBuffer()
         // Unbind the VAO and VBO
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
+
+		const SdfPath& id = GetId();
+		std::string path = id.GetText();
     }
 
     if (HdChangeTracker::IsTopologyDirty(_dirtyBits, id)) {
