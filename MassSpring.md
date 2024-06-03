@@ -30,6 +30,9 @@ $$
 
 $I - \vec{\beta} \vec{\beta}^\top$ 与坐标无关（此处采用 $\vec{v}_n$ 计算，并非严格隐式，否则非线性，难以处理），不参与 $\nabla$ 运算。记 $\mathbf{x} = \mathbf{x}^{n+1} \in \mathbf{R}^{3n \times 1}$，
 
+判断 $\nabla E(\mathbf{x}) \cdot \vec{\beta} \vec{\beta}$ 是否无旋：$\nabla \times (\nabla E(\mathbf{x}) \cdot \vec{\beta} \vec{\beta}) = \nabla (\nabla E(\mathbf{x}) \cdot \vec{\beta}) \times \vec{\beta} = \vec{\beta} \cdot \nabla (\nabla E(\mathbf{x})) \times \vec{\beta}$。弹簧的能量 $E = \sum \frac{1}{2} k (||\mathbf{x} - \mathbf{y}|| - L)^2$，$\nabla E = \sum k (\mathbf{x} - \mathbf{y}) (1 - \frac{L} {||\mathbf{x} - \mathbf{y}||} )$，$\nabla (\nabla E) = \sum k (I - \frac{L} {||\mathbf{x} - \mathbf{y}||^3} (||\mathbf{x} - \mathbf{y}||^2 I - (\mathbf{x} - \mathbf{y}) (\mathbf{x} - \mathbf{y})^\top))$。又 $\vec{\beta} \cdot I \times \vec{\beta} = \vec{\beta} \times \vec{\beta} = \vec{0}$。因此 $\vec{\beta} \cdot \nabla (\nabla E(\mathbf{x})) \times \vec{\beta} = \sum kL \vec{\beta} \cdot \frac{(\mathbf{x} - \mathbf{y}) (\mathbf{x} - \mathbf{y})^T}{||\mathbf{x} - \mathbf{y}||^3} \times \vec{\beta}$ 不一定为 0。故不一定能使用原有的最优化方法求解。
+
+
 $$
 \min_{\mathbf{x}} \quad g(\mathbf{x}) = \frac{1}{2 h^2}(\mathbf{x} - \mathbf{y})^\top   \mathbf{M} (\mathbf{x} - \mathbf{y}) + E(\mathbf{x}) \tag{5}
 $$
