@@ -197,9 +197,13 @@ void Hd_USTC_CG_Mesh::Sync(
     auto limit_c_data = render_param->limited_light_speed_transform_data;
     auto stage = *render_param->global_usd_stage;
 
-    
     bool able_relativity_light = limit_c_data->enable_limited_light_speed_transform;
     pxr::UsdGeomMesh usdgeom;
+    
+    // TODO: Check static objects.
+    // Temporarily set geometry as dynamic objects
+    if (path == "/geom/geometry")
+        _static = false;
 
     if (GlobalUsdStage::enable_limited_light_speed_transform) 
     {
@@ -210,15 +214,17 @@ void Hd_USTC_CG_Mesh::Sync(
                 if (id == sdf_path) {
                     auto prim = stage->GetPrimAtPath(sdf_path);
                     usdgeom = pxr::UsdGeomMesh(prim);
-                    if (usdgeom)
+                    if (usdgeom) 
+                    {
                         able_relativity_light = true;
+                    }
                     break;
                 }
             }
         }
     }
 
-    if (able_relativity_light)
+    if (!_static && able_relativity_light)
     {
 		float time = *render_param->time_code;
 		Hd_USTC_CG_Camera* free_camera;
@@ -281,17 +287,6 @@ void Hd_USTC_CG_Mesh::Sync(
                 double df = (d - prev_d) / real_dt + c;
                 double step = 1;
                 if (df != 0) step = f / df * damping;
-                // if (i == 3) 
-                // {
-                //     std::cout << "#" << i << ", itr#" << itr << " t=" << t << 
-                //         ", prev_idx =" << prev_idx << "("
-				// 			  << time_samples[prev_idx] << ")"
-				// 			  << ", next_idx = " << next_idx << "("
-				// 			  << time_samples[next_idx] << ")"
-                //               << " d=" << d << " prevd=" << prev_d << std::endl;
-                //     std::cout << "x=" << x << " prevx=" << prev_x << " nextx=" << next_x;
-                //     std::cout << "f=" << f << " df=" << df << " step=" << step << std::endl;
-                // }
                 t -= step;
                 if (t < 0.0f) 
                 {
@@ -306,7 +301,6 @@ void Hd_USTC_CG_Mesh::Sync(
 		}
 		points = vertices;
 		transform.SetIdentity();
-		std::cout << "[" << path << "] updated point in relativity" << std::endl;
     }
     else {
 		if (HdChangeTracker::IsPrimvarDirty(*dirtyBits, id, HdTokens->points)) {

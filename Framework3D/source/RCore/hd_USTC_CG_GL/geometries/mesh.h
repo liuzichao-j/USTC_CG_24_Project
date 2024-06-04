@@ -95,6 +95,8 @@ class Hd_USTC_CG_Mesh final : public HdMesh {
 
     bool _refined;
 
+    bool _static = true;
+
     // A local cache of primvar scene data. "data" is a copy-on-write handle to
     // the actual primvar buffer, and "interpolation" is the interpolation mode
     // to be used. This cache is used in _PopulateRtMesh to populate the

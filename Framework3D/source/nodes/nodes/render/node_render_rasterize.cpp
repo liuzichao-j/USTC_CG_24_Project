@@ -117,8 +117,6 @@ static void node_exec(ExeParams params)
     shader_handle->shader.setMat4("view", GfMatrix4f(free_camera->_viewMatrix));
     shader_handle->shader.setMat4("projection", GfMatrix4f(free_camera->_projMatrix));
 
-    std::cout << free_camera->_velocity << std::endl;
-
     for (int i = 0; i < meshes.size(); ++i) {
         auto mesh = meshes[i];
 
