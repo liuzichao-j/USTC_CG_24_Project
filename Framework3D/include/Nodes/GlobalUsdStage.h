@@ -12,10 +12,11 @@ struct GlobalUsdStage {
     static pxr::UsdStageRefPtr global_usd_stage;
 
     static constexpr int timeCodesPerSecond = 15;
+    static inline float speed_of_light = 1000.0f;
+    static inline int enable_limited_light_speed_transform = 1;
+    static inline int iteration_num = 5;
+	static inline float iteration_damping = 0.5;
 
-    static inline float speed_of_light = 50.0f;
-    static inline bool enable_limited_light_speed_transform = false;
-
+    static inline std::vector<void*> relativity_console_bind_data;
 };
-
 USTC_CG_NAMESPACE_CLOSE_SCOPE

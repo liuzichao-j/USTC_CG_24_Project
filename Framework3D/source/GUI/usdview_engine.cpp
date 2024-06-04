@@ -13,6 +13,7 @@
 #include <iostream>
 #include <pxr/usd/usdGeom/mesh.h>
 #include <pxr/usd/usdGeom/primvarsAPI.h>
+#include "Nodes/relativity/utils_relativity.h"
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 class NodeTree;
@@ -138,6 +139,8 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
     renderer_->SetRendererSetting(TfToken("GlobalUsdStage"), VtValue((void*)(&global_usd_stage_weak)));
     float speed_of_light = GlobalUsdStage::speed_of_light;
     renderer_->SetRendererSetting(TfToken("SpeedOfLight"), VtValue((void*)&(speed_of_light)));
+    LimitedLightSpeedTransformData limited_c_data = { GlobalUsdStage::enable_limited_light_speed_transform, GlobalUsdStage::iteration_num, GlobalUsdStage::iteration_damping };
+    renderer_->SetRendererSetting(TfToken("LimitedLightSpeedTransformData"), VtValue((void*)&(limited_c_data)));
 
     _renderParams.enableLighting = true;
     _renderParams.enableSceneMaterials = true;

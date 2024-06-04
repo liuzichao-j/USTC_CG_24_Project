@@ -63,6 +63,7 @@
 #include <pxr/usd/usdSkel/skeleton.h>
 #include "../renderParam.h"
 #include "Nodes/GlobalUsdStage.h"
+#include "Nodes/relativity/utils_relativity.h"
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 using namespace pxr;
@@ -193,9 +194,11 @@ void Hd_USTC_CG_Mesh::Sync(
     }
 
     const auto& render_param = ((Hd_USTC_CG_RenderParam*)renderParam);
+    auto limit_c_data = render_param->limited_light_speed_transform_data;
     auto stage = *render_param->global_usd_stage;
 
-    bool able_relativity_light = false;
+    
+    bool able_relativity_light = limit_c_data->enable_limited_light_speed_transform;
     pxr::UsdGeomMesh usdgeom;
 
     if (GlobalUsdStage::enable_limited_light_speed_transform) 
@@ -245,8 +248,8 @@ void Hd_USTC_CG_Mesh::Sync(
             hist_data_transform[i] = usdgeom.ComputeLocalToWorldTransform(time_samples[i]);
         }
 
-        const int itr_n = 2;
-        const float dt = 0.02;
+        int itr_n = limit_c_data->iteration_num;
+        float damping = limit_c_data->iteration_damping;
         for (int i = 0; i < points.size(); i++)
         {
 			float t = time;
@@ -277,7 +280,7 @@ void Hd_USTC_CG_Mesh::Sync(
                 double f = d + c * (t - time);
                 double df = (d - prev_d) / real_dt + c;
                 double step = 1;
-                if (df != 0) step = f / df;
+                if (df != 0) step = f / df * damping;
                 // if (i == 3) 
                 // {
                 //     std::cout << "#" << i << ", itr#" << itr << " t=" << t << 

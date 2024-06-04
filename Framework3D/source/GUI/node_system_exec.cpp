@@ -9,6 +9,7 @@
 #include "imgui/imgui-node-editor/imgui_node_editor.h"
 #include "pxr/usd/usdGeom/metrics.h"
 #include "pxr/usd/usdGeom/tokens.h"
+
 USTC_CG_NAMESPACE_OPEN_SCOPE
 namespace ed = ax::NodeEditor;
 
@@ -28,7 +29,7 @@ Node* NodeSystemExecution::create_node_menu()
 {
     Node* node = nullptr;
 
-    USTC_CG::logging("Create node system not implemented for this type.", Error);
+    logging("Create node system not implemented for this type.", Error);
 
     return node;
 }
@@ -336,6 +337,15 @@ void CompositionNodeSystemExecution::try_execution()
 
         executor->execute(node_tree.get());
         required_execution = false;
+        for (auto&& node : node_tree->nodes) {
+			if (std::string(node->typeinfo->id_name) == "comp_relativity_console") {
+                std::cout << "update" << std::endl;
+                for (int i = 0; i < node->inputs.size(); i++)
+                {
+                    executor->sync_node_to_external_storage(node->inputs[i], GlobalUsdStage::relativity_console_bind_data[i]);
+                }
+            }
+        }
     }
 }
 

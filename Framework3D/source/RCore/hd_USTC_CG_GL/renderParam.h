@@ -30,6 +30,7 @@
 #include "pxr/imaging/hd/renderThread.h"
 #include "pxr/pxr.h"
 #include "pxr/usd/usd/prim.h"
+#include "Nodes/relativity/utils_relativity.h"
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 class Hd_USTC_CG_Material;
@@ -71,6 +72,7 @@ class Hd_USTC_CG_RenderParam final : public HdRenderParam {
     pxr::VtArray<Hd_USTC_CG_Mesh *> *meshes = nullptr;
     GfVec3f *camera_velocity = nullptr;
     pxr::UsdStageWeakPtr *global_usd_stage = nullptr;
+    LimitedLightSpeedTransformData *limited_light_speed_transform_data = nullptr;
     float *time_code = nullptr;
     UsdPrim *usd_root = nullptr;
     float *speed_of_light = nullptr;

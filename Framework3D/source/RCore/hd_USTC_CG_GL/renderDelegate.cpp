@@ -41,6 +41,7 @@
 #include "renderPass.h"
 #include "renderer.h"
 #include "pxr/usd/usd/prim.h"
+#include "Nodes/relativity/utils_relativity.h"
 
 USTC_CG_NAMESPACE_OPEN_SCOPE
 using namespace pxr;
@@ -357,6 +358,9 @@ void Hd_USTC_CG_RenderDelegate::SetRenderSetting(const TfToken& key, const VtVal
     }
     if (key == TfToken("SpeedOfLight")) {
         _renderParam->speed_of_light = static_cast<float*>(value.Get<void*>());
+    }
+    if (key == TfToken("LimitedLightSpeedTransformData")) {
+        _renderParam->limited_light_speed_transform_data = static_cast<LimitedLightSpeedTransformData*>(value.Get<void*>());
     }
 }
 
