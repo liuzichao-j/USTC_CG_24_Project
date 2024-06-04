@@ -234,7 +234,18 @@ void Hd_USTC_CG_Mesh::Sync(
 
         float c = *render_param->speed_of_light;
 
-        const int itr_n = 3;
+        std::vector<double> time_samples;
+        usdgeom.GetTimeSamples(&time_samples);
+
+        std::vector<pxr::VtArray<pxr::GfVec3f>> hist_data_pos(time_samples.size());
+        std::vector<pxr::GfMatrix4d> hist_data_transform(time_samples.size());
+        for (int i = 0; i < time_samples.size(); i++)
+        {
+			usdgeom.GetPointsAttr().Get(&hist_data_pos[i], time_samples[i]); 
+            hist_data_transform[i] = usdgeom.ComputeLocalToWorldTransform(time_samples[i]);
+        }
+
+        const int itr_n = 2;
         const float dt = 0.02;
         for (int i = 0; i < points.size(); i++)
         {
@@ -242,24 +253,24 @@ void Hd_USTC_CG_Mesh::Sync(
             for (int itr = 1; itr <= itr_n; itr++)
             {
                 // Newton Iteration
-                float prev_t = std::max(t - dt, 0.0f);
-				float real_dt = t - prev_t;
-				if (real_dt <= 0)
-				{
-					t = 0.0f;
-					break;
+				int next_idx = std::lower_bound(time_samples.begin(), time_samples.end(), t) - time_samples.begin();
+				int prev_idx = next_idx - 1;
+                if (next_idx >= time_samples.size() && time_samples.size() >= 2)
+                {
+                    prev_idx = time_samples.size() - 2;
+					next_idx = time_samples.size() - 1;
+				}
+                else if (prev_idx < 0 || prev_idx >= time_samples.size() || next_idx < 0 || next_idx >= time_samples.size())
+                {
+                    t = 0.0f;
+                    break;
                 }
-
-				pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(t);
-				pxr::GfMatrix4d prev_vert_transform = usdgeom.ComputeLocalToWorldTransform(prev_t);
-				pxr::VtArray<pxr::GfVec3f> vertices_tmp;
-				pxr::VtArray<pxr::GfVec3f> prev_vertices_tmp;
-				usdgeom.GetPointsAttr().Get(&vertices_tmp, t); 
-				usdgeom.GetPointsAttr().Get(&prev_vertices_tmp, prev_t); 
-
-                GfVec3d x = vert_transform.TransformAffine(vertices_tmp[i]);
-                GfVec3d prev_x = prev_vert_transform.TransformAffine(prev_vertices_tmp[i]);
-                GfVec3d v = (x - prev_x) / real_dt;
+                GfVec3f prev_x = hist_data_transform[prev_idx].TransformAffine(hist_data_pos[prev_idx][i]),
+						next_x = hist_data_transform[next_idx].TransformAffine(hist_data_pos[next_idx][i]);
+                double sample_dt = time_samples[next_idx] - time_samples[prev_idx];
+                double real_dt = t - time_samples[prev_idx];
+                double lambda = real_dt / sample_dt;
+                GfVec3f x = prev_x * (1 - lambda) + next_x * lambda;
                 double d = (x - camera_position).GetLength();
                 double prev_d = (prev_x - camera_position).GetLength();
 
@@ -267,6 +278,17 @@ void Hd_USTC_CG_Mesh::Sync(
                 double df = (d - prev_d) / real_dt + c;
                 double step = 1;
                 if (df != 0) step = f / df;
+                // if (i == 3) 
+                // {
+                //     std::cout << "#" << i << ", itr#" << itr << " t=" << t << 
+                //         ", prev_idx =" << prev_idx << "("
+				// 			  << time_samples[prev_idx] << ")"
+				// 			  << ", next_idx = " << next_idx << "("
+				// 			  << time_samples[next_idx] << ")"
+                //               << " d=" << d << " prevd=" << prev_d << std::endl;
+                //     std::cout << "x=" << x << " prevx=" << prev_x << " nextx=" << next_x;
+                //     std::cout << "f=" << f << " df=" << df << " step=" << step << std::endl;
+                // }
                 t -= step;
                 if (t < 0.0f) 
                 {
@@ -278,7 +300,6 @@ void Hd_USTC_CG_Mesh::Sync(
 			pxr::VtArray<pxr::GfVec3f> vertices_tmp;
 			usdgeom.GetPointsAttr().Get(&vertices_tmp, t); 
             vertices[i] = vert_transform.TransformAffine(vertices_tmp[i]);
-			// if(i == 3) std::cout << "#" << i << " dt " << (t - time) << std::endl;
 		}
 		points = vertices;
 		transform.SetIdentity();
