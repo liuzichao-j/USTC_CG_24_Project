@@ -22,6 +22,9 @@ static void node_declare(NodeDeclarationBuilder& b)
     b.add_input<decl::Float>("Iteration Damping").min(0).max(1).default_val(0.5);
     GlobalUsdStage::relativity_console_bind_data.push_back(&GlobalUsdStage::iteration_damping);
 
+    b.add_input<decl::Int>("Use God View").min(0).max(1).default_val(0);
+    GlobalUsdStage::relativity_console_bind_data.push_back(&GlobalUsdStage::enable_god_view);
+
 }
 
 static void node_exec(ExeParams params)

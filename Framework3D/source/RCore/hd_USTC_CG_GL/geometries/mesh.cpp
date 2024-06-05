@@ -198,6 +198,7 @@ void Hd_USTC_CG_Mesh::Sync(
     auto stage = *render_param->global_usd_stage;
 
     bool able_relativity_light = limit_c_data->enable_limited_light_speed_transform;
+    bool able_god_view = limit_c_data->enable_god_view;
     pxr::UsdGeomMesh usdgeom;
     
     // TODO: Check static objects.
@@ -224,7 +225,86 @@ void Hd_USTC_CG_Mesh::Sync(
         }
     }
 
-    if (!_static && able_relativity_light)
+    if (able_god_view) {
+        float time = *render_param->time_code;
+        Hd_USTC_CG_Camera* free_camera;
+        for (auto camera : *render_param->cameras) {
+            if (camera->GetId() != SdfPath::EmptyPath()) {
+                free_camera = camera;
+                break;
+            }
+        }
+
+        GfVec3d camera_position = free_camera->GetTransform().ExtractTranslation();
+
+        pxr::VtArray<pxr::GfVec3f> vertices;
+        pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(time);
+        usdgeom.GetPointsAttr().Get(&vertices, time);
+
+        float c = *render_param->speed_of_light;
+        GfVec3f v = free_camera->_velocity;
+        auto beta = v / c;
+
+        std::vector<double> time_samples;
+        usdgeom.GetTimeSamples(&time_samples);
+
+        std::vector<pxr::VtArray<pxr::GfVec3f>> hist_data_pos(time_samples.size());
+        std::vector<pxr::GfMatrix4d> hist_data_transform(time_samples.size());
+        for (int i = 0; i < time_samples.size(); i++) {
+            usdgeom.GetPointsAttr().Get(&hist_data_pos[i], time_samples[i]);
+            hist_data_transform[i] = usdgeom.ComputeLocalToWorldTransform(time_samples[i]);
+        }
+
+        int itr_n = limit_c_data->iteration_num;
+        float damping = limit_c_data->iteration_damping;
+        for (int i = 0; i < points.size(); i++) {
+            float t = time;
+            for (int itr = 1; itr <= itr_n; itr++) {
+                // Newton Iteration
+                int next_idx = std::lower_bound(time_samples.begin(), time_samples.end(), t) -
+                               time_samples.begin();
+                int prev_idx = next_idx - 1;
+                if (next_idx >= time_samples.size() && time_samples.size() >= 2) {
+                    prev_idx = time_samples.size() - 2;
+                    next_idx = time_samples.size() - 1;
+                }
+                else if (
+                    prev_idx < 0 || prev_idx >= time_samples.size() || next_idx < 0 ||
+                    next_idx >= time_samples.size()) {
+                    t = 0.0f;
+                    break;
+                }
+                GfVec3f prev_x = hist_data_transform[prev_idx].TransformAffine(
+                            hist_data_pos[prev_idx][i]),
+                        next_x = hist_data_transform[next_idx].TransformAffine(
+                            hist_data_pos[next_idx][i]);
+                double sample_dt = time_samples[next_idx] - time_samples[prev_idx];
+                double real_dt = t - time_samples[prev_idx];
+                double lambda = real_dt / sample_dt;
+                GfVec3f x = prev_x * (1 - lambda) + next_x * lambda;
+                double d = pxr::GfDot(x - camera_position, beta);
+                double prev_d = pxr::GfDot(prev_x - camera_position, beta);
+
+                double f = d + c * (t - time);
+                double df = (d - prev_d) / real_dt + c;
+                double step = 1;
+                if (df != 0)
+                    step = f / df * damping;
+                t -= step;
+                if (t < 0.0f) {
+                    t = 0.0f;
+                    break;
+                }
+            }
+            pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(t);
+            pxr::VtArray<pxr::GfVec3f> vertices_tmp;
+            usdgeom.GetPointsAttr().Get(&vertices_tmp, t);
+            vertices[i] = vert_transform.TransformAffine(vertices_tmp[i]);
+        }
+        points = vertices;
+        transform.SetIdentity();
+    }
+    else if (!_static && able_relativity_light)
     {
 		float time = *render_param->time_code;
 		Hd_USTC_CG_Camera* free_camera;

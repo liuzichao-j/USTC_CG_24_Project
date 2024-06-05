@@ -15,7 +15,8 @@ struct GlobalUsdStage {
     static inline float speed_of_light = 1000.0f;
     static inline int enable_limited_light_speed_transform = 1;
     static inline int iteration_num = 5;
-	static inline float iteration_damping = 0.5;
+    static inline float iteration_damping = 0.5;
+    static inline int enable_god_view = 0;
 
     static inline std::vector<void*> relativity_console_bind_data;
 };

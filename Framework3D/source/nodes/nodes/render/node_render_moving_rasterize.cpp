@@ -122,6 +122,7 @@ static void node_exec(ExeParams params)
             for (auto i = 0; i < size; ++i){
                 auto min = 0.f, max = time_code;
                 pxr::VtArray<pxr::GfVec3f> vertices_t;
+                pointsAttr.Get(&vertices_t, pxr::UsdTimeCode(min));
                 while (max - min > delta_time) {
                     auto mid = (min + max) / 2;
                     if (!pointsAttr.Get(&vertices_t, pxr::UsdTimeCode(mid)) || i >= vertices_t.size()) {
