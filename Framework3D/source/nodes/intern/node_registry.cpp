@@ -12,6 +12,9 @@ USTC_CG_NAMESPACE_OPEN_SCOPE
 namespace node_mass_spring {
     class MassSpring;
 }
+namespace node_relativity_mass_spring {
+	class MassSpring;
+}
 namespace node_sph_fluid {
     class SPHBase;
 }

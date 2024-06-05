@@ -2,7 +2,7 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 #include <set>
-#include "utils.h"
+#include "relativity_utils.h"
 #include <chrono>
 #include <cassert>
 
@@ -56,10 +56,12 @@ class MassSpring {
     // Detect collision and compute the penalty-based collision force with given sphere
     Eigen::MatrixXd getSphereCollisionForce(Eigen::Vector3d center, double radius);
 
+    /*
     virtual bool set_dirichlet_bc_mask(const std::vector<bool>& mask);
     virtual bool update_dirichlet_bc_vertices(const MatrixXd &control_vertices); 
     virtual bool init_dirichlet_bc_vertices_control_pair(const MatrixXd &control_vertices,
                                       const std::vector<bool>& control_mask);
+    */
 
     // Simulation parameters
     double stiffness = 1000.0;
@@ -84,8 +86,6 @@ class MassSpring {
     bool enable_damping = true;
     bool enable_debug_output = false;
 
-    void collision_correction(Eigen::MatrixXd &X, Eigen::MatrixXd &vel, Eigen::Vector3d center, double radius);
-
     float speed_of_light = 1000.0f;
 
    protected:
@@ -94,8 +94,11 @@ class MassSpring {
     Eigen::MatrixXd vel;
     EdgeSet E;
     std::vector<double> E_rest_length;
+
     std::vector<bool>
         dirichlet_bc_mask;  // mask for marking fixed points (Dirichlet boundary condition)
+    /*
     std::vector<std::pair<int, int>> dirichlet_bc_control_pair;
+    */
 };
 }  // namespace USTC_CG::node_relativity_mass_spring

@@ -222,7 +222,7 @@ void GeoNodeSystemExecution::try_execution()
 
             if (try_fetch_info("geom_speed_of_light_set", &speed_of_light_set)) {
                 GlobalUsdStage::speed_of_light = speed_of_light_set;
-                std::cout << "Speed of light set to: " << speed_of_light_set << std::endl;
+                // std::cout << "Speed of light set to: " << speed_of_light_set << std::endl;
                 break;
             }
         }
@@ -243,7 +243,7 @@ void GeoNodeSystemExecution::try_execution()
             };
 
             if (try_fetch_info("geom_time_gain", &time_advected)) {
-                std::cout << "Time advected " << time_advected << std::endl;
+                // std::cout << "Time advected " << time_advected << std::endl;
                 has_time_advection = true;
                 break;
             }

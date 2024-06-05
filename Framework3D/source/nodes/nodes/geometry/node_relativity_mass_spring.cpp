@@ -10,7 +10,7 @@
 #include "Nodes/node_declare.hpp"
 #include "Nodes/node_register.h"
 #include "geom_node_base.h"
-// #include "mass_spring/FastMassSpring.h"
+// #include "mass_spring/RelativityFastMassSpring.h"
 #include "mass_spring/RelativityMassSpring.h"
 #include "mass_spring/utils.h"
 #include "utils/util_openmesh_bind.h"
@@ -45,8 +45,11 @@ static void node_mass_spring_declare(NodeDeclarationBuilder& b)
     b.add_input<decl::Int>("enable debug output").default_val(0).min(0).max(1);
 
     // Optional switches
-    b.add_input<decl::Int>("enable Liu13").default_val(0).min(0).max(1);
+    // b.add_input<decl::Int>("enable Liu13").default_val(0).min(0).max(1);
     b.add_input<decl::Int>("enable sphere collision").default_val(0).min(0).max(1);
+
+    // iteration times for Liu13
+    // b.add_input<decl::Int>("Liu13 iteration times").default_val(100).min(1).max(1000);
 
     // Current time in node system 
     b.add_input<decl::Float>("time_code");
@@ -61,8 +64,6 @@ static void node_mass_spring_declare(NodeDeclarationBuilder& b)
 static void node_mass_spring_exec(ExeParams params)
 {
     auto time_code = params.get_input<float>("time_code");
-
-    auto speed_of_light = params.get_input<float>("Speed of Light");
 
     auto mass_spring = params.get_input<std::shared_ptr<MassSpring>>("Mass Spring");
 
@@ -82,20 +83,22 @@ static void node_mass_spring_exec(ExeParams params)
             auto edges =
                 get_edges(usd_faces_to_eigen(mesh->faceVertexCounts, mesh->faceVertexIndices));
             auto vertices = usd_vertices_to_eigen(mesh->vertices);
-            const float k = params.get_input<float>("stiffness");
-            const float h = params.get_input<float>("h");
 
-            bool enable_liu13 =  params.get_input<int>("enable Liu13") == 1 ? true : false;
-            if (enable_liu13) { 
+            // bool enable_liu13 =  params.get_input<int>("enable Liu13") == 1 ? true : false;
+            // if (enable_liu13) { 
                 // HW Optional 
-				// mass_spring = std::make_shared<FastMassSpring>(vertices, edges, k, h);
-			}
-			else
-				mass_spring = std::make_shared<MassSpring>(vertices, edges, speed_of_light);
+                // const int iter = params.get_input<int>("Liu13 iteration times");
+				// mass_spring = std::make_shared<FastMassSpring>(vertices, edges, iter);
+			// }
+			// else
+            // {
+				mass_spring = std::make_shared<MassSpring>(vertices, edges);
+            // }
 
             // simulation parameters
-            mass_spring->stiffness = k;
+            mass_spring->stiffness = params.get_input<float>("stiffness");
             mass_spring->h = params.get_input<float>("h");
+            mass_spring->speed_of_light = params.get_input<float>("Speed of Light");
             mass_spring->gravity = { 0, 0, params.get_input<float>("gravity")};
             mass_spring->damping = params.get_input<float>("damping");
 
