@@ -205,7 +205,7 @@ void Hd_USTC_CG_Mesh::Sync(
     if (path == "/geom/geometry")
         _static = false;
 
-    if (GlobalUsdStage::enable_limited_light_speed_transform) 
+    if (able_relativity_light) 
     {
         if (stage) {
             for (auto stage_elm : stage->Traverse()) {
@@ -237,10 +237,6 @@ void Hd_USTC_CG_Mesh::Sync(
 
 		GfVec3d camera_position = free_camera->GetTransform().ExtractTranslation();
 
-		pxr::VtArray<pxr::GfVec3f> vertices;
-		pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(time);
-		usdgeom.GetPointsAttr().Get(&vertices, time); 
-
         float c = *render_param->speed_of_light;
 
         std::vector<double> time_samples;
@@ -253,13 +249,19 @@ void Hd_USTC_CG_Mesh::Sync(
 			usdgeom.GetPointsAttr().Get(&hist_data_pos[i], time_samples[i]); 
             hist_data_transform[i] = usdgeom.ComputeLocalToWorldTransform(time_samples[i]);
         }
+        pxr::VtArray<pxr::GfVec3f> vertices, cur_velocity;
+		pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(time);
+		usdgeom.GetPointsAttr().Get(&vertices, time); 
+        cur_velocity.resize(vertices.size(), GfVec3f(0.0));
 
         int itr_n = limit_c_data->iteration_num;
         float damping = limit_c_data->iteration_damping;
         for (int i = 0; i < points.size(); i++)
         {
 			float t = time;
-            for (int itr = 1; itr <= itr_n; itr++)
+            GfVec3f x, prev_x, next_x;
+			double sample_dt, real_dt;
+            for (int itr = 1; itr <= itr_n + 1; itr++)
             {
                 // Newton Iteration
 				int next_idx = std::lower_bound(time_samples.begin(), time_samples.end(), t) - time_samples.begin();
@@ -274,12 +276,15 @@ void Hd_USTC_CG_Mesh::Sync(
                     t = 0.0f;
                     break;
                 }
-                GfVec3f prev_x = hist_data_transform[prev_idx].TransformAffine(hist_data_pos[prev_idx][i]),
-						next_x = hist_data_transform[next_idx].TransformAffine(hist_data_pos[next_idx][i]);
-                double sample_dt = time_samples[next_idx] - time_samples[prev_idx];
-                double real_dt = t - time_samples[prev_idx];
+                prev_x = hist_data_transform[prev_idx].TransformAffine(hist_data_pos[prev_idx][i]),
+				next_x = hist_data_transform[next_idx].TransformAffine(hist_data_pos[next_idx][i]);
+                sample_dt = time_samples[next_idx] - time_samples[prev_idx];
+                real_dt = t - time_samples[prev_idx];
                 double lambda = real_dt / sample_dt;
-                GfVec3f x = prev_x * (1 - lambda) + next_x * lambda;
+                x = prev_x * (1 - lambda) + next_x * lambda;
+
+                if (itr == itr_n + 1)
+                    break;
                 double d = (x - camera_position).GetLength();
                 double prev_d = (prev_x - camera_position).GetLength();
 
@@ -294,12 +299,21 @@ void Hd_USTC_CG_Mesh::Sync(
 					break;
                 }
 			}
-			pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(t);
-			pxr::VtArray<pxr::GfVec3f> vertices_tmp;
-			usdgeom.GetPointsAttr().Get(&vertices_tmp, t); 
-            vertices[i] = vert_transform.TransformAffine(vertices_tmp[i]);
+
+            if (t == 0.0f)
+            {
+                if(hist_data_transform.size() > 0)
+                    vertices[i] = hist_data_transform[0].TransformAffine(hist_data_pos[0][i]);
+                cur_velocity[i] = GfVec3f(0.0);
+            }
+            else 
+            {
+                vertices[i] = x;
+                cur_velocity[i] = (x - prev_x) / real_dt;
+            }
 		}
-		points = vertices;
+        points = vertices;
+		vertex_velocity = cur_velocity;
 		transform.SetIdentity();
     }
     else {
@@ -313,7 +327,11 @@ void Hd_USTC_CG_Mesh::Sync(
 			HdChangeTracker::IsTransformDirty(*dirtyBits, id)) {
 			transform = GfMatrix4f(sceneDelegate->GetTransform(id));
 		}
+        pxr::VtArray<pxr::GfVec3f> cur_velocity;
+        cur_velocity.resize(points.size(), GfVec3f(0.0));
+		vertex_velocity = cur_velocity;
     }
+
 
     if (HdChangeTracker::IsTopologyDirty(*dirtyBits, id)) {
         topology = GetMeshTopology(sceneDelegate);
@@ -372,9 +390,6 @@ void Hd_USTC_CG_Mesh::RefreshGLBuffer()
         // Unbind the VAO and VBO
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
-
-		const SdfPath& id = GetId();
-		std::string path = id.GetText();
     }
 
     if (HdChangeTracker::IsTopologyDirty(_dirtyBits, id)) {

@@ -26,6 +26,7 @@
 #include "pxr/usd/usdSkel/animation.h"
 #include "pxr/usd/usdSkel/bindingAPI.h"
 #include "pxr/usd/usdSkel/skeletonQuery.h"
+#include <Eigen/Dense>
 
 namespace USTC_CG::node_read_usd {
 
@@ -85,10 +86,19 @@ static void node_exec(ExeParams params)
                 auto rotation = final_transform.ExtractRotation();
                 auto translation = final_transform.ExtractTranslation();
                 // TODO: rotation not read.
+				Eigen::Matrix4f mat = Eigen::Matrix4f::Zero();
+				for (int i = 0; i < 4; i++)
+					for (int j = 0; j < 4; j++)
+					{
+						mat(i, j) = final_transform[j][i];
+					}
+                Eigen::Matrix3f mat_rot = mat.block(0, 0, 3, 3);
+				Eigen::Vector3f rot = mat_rot.eulerAngles(0, 1, 2) * 180;
+                auto scale = pxr::GfVec3f(mat_rot.col(0).norm(), mat_rot.col(1).norm(), mat_rot.col(2).norm());
 
                 xform_component->translation.push_back(pxr::GfVec3f(translation));
-                xform_component->rotation.push_back(pxr::GfVec3f(0.0f));
-                xform_component->scale.push_back(pxr::GfVec3f(1.0f));
+                xform_component->rotation.push_back(pxr::GfVec3f(rot(0), rot(1), rot(2)));
+                xform_component->scale.push_back(scale);
             }
             using namespace pxr;
             UsdSkelBindingAPI binding = UsdSkelBindingAPI(usdgeom);

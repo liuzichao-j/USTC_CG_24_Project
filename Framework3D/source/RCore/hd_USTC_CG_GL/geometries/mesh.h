@@ -57,14 +57,17 @@ class Hd_USTC_CG_Mesh final : public HdMesh {
     GLuint VBO = 0;
     GLuint EBO = 0;
     GLuint normalBuffer = 0;
+    GLuint velocityBuffer = 0;
     GLuint texcoords = 0;
     GfMatrix4f transform;
     VtVec3iArray triangulatedIndices;
     VtIntArray trianglePrimitiveParams;
     VtArray<GfVec3f> points;
+    VtArray<GfVec3f> vertex_velocity;
     VtVec3fArray computedNormals;
     static constexpr GLuint normalLocation = 1;
     static constexpr GLuint texcoordLocation = 2;
+    static constexpr GLuint velocityLocation = 3;
 
    protected:
     uint32_t _dirtyBits;

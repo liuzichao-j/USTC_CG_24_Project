@@ -150,6 +150,19 @@ static void node_exec(ExeParams params)
         mesh->RefreshTexcoordGLBuffer(texcoordName);
 
         glBindVertexArray(mesh->VAO);
+        glDeleteBuffers(1, &mesh->velocityBuffer);
+        glGenBuffers(1, &mesh->velocityBuffer);
+        glBindBuffer(GL_ARRAY_BUFFER, mesh->velocityBuffer);
+        glBufferData(
+            GL_ARRAY_BUFFER,
+            mesh->vertex_velocity.size() * sizeof(GfVec3f),
+            mesh->vertex_velocity.cdata(),
+            GL_DYNAMIC_DRAW);
+
+        glVertexAttribPointer(mesh->velocityLocation, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), 0);
+        glEnableVertexAttribArray(mesh->velocityLocation);
+
+        glBindVertexArray(mesh->VAO);
         glDrawElements(
             GL_TRIANGLES,
             static_cast<unsigned int>(mesh->triangulatedIndices.size() * 3),
