@@ -339,7 +339,6 @@ void CompositionNodeSystemExecution::try_execution()
         required_execution = false;
         for (auto&& node : node_tree->nodes) {
 			if (std::string(node->typeinfo->id_name) == "comp_relativity_console") {
-                std::cout << "update" << std::endl;
                 for (int i = 0; i < node->inputs.size(); i++)
                 {
                     executor->sync_node_to_external_storage(node->inputs[i], GlobalUsdStage::relativity_console_bind_data[i]);
