@@ -252,6 +252,7 @@ void Hd_USTC_CG_Mesh::Sync(
 
         std::vector<pxr::VtArray<pxr::GfVec3f>> hist_data_pos(time_samples.size());
         std::vector<pxr::GfMatrix4d> hist_data_transform(time_samples.size());
+        // std::cout << time_samples.size() << std::endl;
         for (int i = 0; i < time_samples.size(); i++) {
             usdgeom.GetPointsAttr().Get(&hist_data_pos[i], time_samples[i]);
             hist_data_transform[i] = usdgeom.ComputeLocalToWorldTransform(time_samples[i]);
@@ -300,17 +301,9 @@ void Hd_USTC_CG_Mesh::Sync(
                 if (df != 0)
                     step = f / df * damping;
                 t -= step;
-                if (t < 0.0f) {
-                    t = 0.0f;
-                    break;
-                }
-                if (t > time_samples.back()) {
-                    t = time_samples.back();
-                    break;
-                }
             }
 
-            if (t == 0.0f) {
+            if (t <= 0.0f) {
                 if (hist_data_transform.size() > 0) {
                     vertices[i] = hist_data_transform[0].TransformAffine(hist_data_pos[0][i]);
                     GfVec3f dir = vertices[i] - camera_position;
@@ -320,7 +313,7 @@ void Hd_USTC_CG_Mesh::Sync(
                 }
                 cur_velocity[i] = GfVec3f(0.0);
             }
-            else if (t == time_samples.back()) {
+            else if (t >= time_samples.back()) {
                 if (hist_data_transform.size() > 0) {
                     vertices[i] = hist_data_transform.back().TransformAffine((hist_data_pos.back())[i]);
                     GfVec3f dir = vertices[i] - camera_position;
