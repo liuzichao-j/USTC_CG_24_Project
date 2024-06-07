@@ -110,7 +110,7 @@ static void node_exec(ExeParams params)
                               GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4, GL_COLOR_ATTACHMENT5 };
     glDrawBuffers(6, attachments);
 
-    glClearColor(0.0f, 0.f, 0.f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
     glViewport(0, 0, size[0], size[1]);
@@ -130,6 +130,20 @@ static void node_exec(ExeParams params)
         free_camera->_velocity.Normalize();
         free_camera->_velocity *= speed_of_light;
     }
+
+    shader_handle->shader.setVec3("camSpeed", GfVec3f(0.0, 0.0, 0.0));
+    shader_handle->shader.setFloat("lightSpeed", 10000000);
+    glColor4f(0.0, 0.0, 0.0, 0.2);
+    glBegin(GL_LINES);
+    const int gridn = 20;
+    const float gridy = -0.01;
+    for (int i = -gridn; i <= gridn; ++i) {
+        glVertex3f(-gridn, i, gridy);
+        glVertex3f(gridn, i,  gridy);
+        glVertex3f(i, -gridn, gridy);
+        glVertex3f(i, gridn,  gridy);
+    }
+    glEnd();
 
     shader_handle->shader.setVec3("camSpeed", free_camera->_velocity);
     shader_handle->shader.setFloat("lightSpeed", speed_of_light);

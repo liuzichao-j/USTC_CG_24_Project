@@ -54,12 +54,12 @@ void main()
 
     vec3 norm = normalize(texture(normalMapSampler, uv).xyz);
 
-    // if(isnan(norm.x))
-    // {
-    //     //background
-    //     Color = vec4(vec3(0.1), 1.0);
-    //     return;
-    // }
+    if(isnan(norm.x))
+    {
+        //background
+        Color = vec4(vec3(0.05), 1.0);
+        return;
+    }
 
     vec3 diff_color = texture(diffuseColorSampler, uv).rgb;
     vec3 result = vec3(0.0);
