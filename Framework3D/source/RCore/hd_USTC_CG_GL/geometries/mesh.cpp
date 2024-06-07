@@ -199,14 +199,14 @@ void Hd_USTC_CG_Mesh::Sync(
 
     bool able_relativity_light = limit_c_data->enable_limited_light_speed_transform;
     bool able_god_view = limit_c_data->enable_god_view;
-    pxr::UsdGeomMesh usdgeom;
+    pxr::UsdGeomMesh usdgeom=pxr::UsdGeomMesh();
     
     // TODO: Check static objects.
     // Temporarily set geometry as dynamic objects
     if (path == "/geom/geometry")
         _static = false;
     
-    if (able_relativity_light) 
+    if (able_relativity_light || able_god_view) 
     {
         if (stage) {
             for (auto stage_elm : stage->Traverse()) {
@@ -215,17 +215,13 @@ void Hd_USTC_CG_Mesh::Sync(
                 if (id == sdf_path) {
                     auto prim = stage->GetPrimAtPath(sdf_path);
                     usdgeom = pxr::UsdGeomMesh(prim);
-                    if (usdgeom) 
-                    {
-                        able_relativity_light = true;
-                    }
                     break;
                 }
             }
         }
     }
 
-    if (able_god_view && able_relativity_light) {
+    if (able_god_view && usdgeom) {
         float time = *render_param->time_code;
         Hd_USTC_CG_Camera* free_camera;
         for (auto camera : *render_param->cameras) {
@@ -336,7 +332,7 @@ void Hd_USTC_CG_Mesh::Sync(
         vertex_velocity = cur_velocity;
         transform.SetIdentity();
     }
-    else if (!_static && able_relativity_light)
+    else if (!_static && able_relativity_light && usdgeom)
     {
 		float time = *render_param->time_code;
 		Hd_USTC_CG_Camera* free_camera;
