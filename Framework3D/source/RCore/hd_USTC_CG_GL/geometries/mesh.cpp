@@ -205,7 +205,7 @@ void Hd_USTC_CG_Mesh::Sync(
     // Temporarily set geometry as dynamic objects
     if (path == "/geom/geometry")
         _static = false;
-
+    
     if (able_relativity_light) 
     {
         if (stage) {
@@ -225,7 +225,7 @@ void Hd_USTC_CG_Mesh::Sync(
         }
     }
 
-    if (able_god_view) {
+    if (able_god_view && able_relativity_light) {
         float time = *render_param->time_code;
         Hd_USTC_CG_Camera* free_camera;
         for (auto camera : *render_param->cameras) {
@@ -235,15 +235,17 @@ void Hd_USTC_CG_Mesh::Sync(
             }
         }
 
-        GfVec3d camera_position = free_camera->GetTransform().ExtractTranslation();
-
-        pxr::VtArray<pxr::GfVec3f> vertices;
-        pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(time);
-        usdgeom.GetPointsAttr().Get(&vertices, time);
-
+        GfVec3f camera_position(free_camera->GetTransform().ExtractTranslation());
+        
         float c = *render_param->speed_of_light;
-        GfVec3f v = free_camera->_velocity;
-        auto beta = v / c;
+        
+        if (free_camera->_velocity.GetLength() >= c) {
+            free_camera->_velocity.Normalize();
+            free_camera->_velocity *= c;
+        }
+
+        pxr::GfVec3f beta = free_camera->_velocity / c;
+        float gamma = 1 / sqrt(1 - beta.GetLengthSq());
 
         std::vector<double> time_samples;
         usdgeom.GetTimeSamples(&time_samples);
@@ -254,12 +256,18 @@ void Hd_USTC_CG_Mesh::Sync(
             usdgeom.GetPointsAttr().Get(&hist_data_pos[i], time_samples[i]);
             hist_data_transform[i] = usdgeom.ComputeLocalToWorldTransform(time_samples[i]);
         }
+        pxr::VtArray<pxr::GfVec3f> vertices, cur_velocity;
+        pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(time);
+        usdgeom.GetPointsAttr().Get(&vertices, time);
+        cur_velocity.resize(vertices.size(), GfVec3f(0.0));
 
         int itr_n = limit_c_data->iteration_num;
         float damping = limit_c_data->iteration_damping;
         for (int i = 0; i < points.size(); i++) {
             float t = time;
-            for (int itr = 1; itr <= itr_n; itr++) {
+            GfVec3f x, prev_x, next_x;
+            double sample_dt, real_dt;
+            for (int itr = 1; itr <= itr_n + 1; itr++) {
                 // Newton Iteration
                 int next_idx = std::lower_bound(time_samples.begin(), time_samples.end(), t) -
                                time_samples.begin();
@@ -274,19 +282,20 @@ void Hd_USTC_CG_Mesh::Sync(
                     t = 0.0f;
                     break;
                 }
-                GfVec3f prev_x = hist_data_transform[prev_idx].TransformAffine(
-                            hist_data_pos[prev_idx][i]),
-                        next_x = hist_data_transform[next_idx].TransformAffine(
-                            hist_data_pos[next_idx][i]);
-                double sample_dt = time_samples[next_idx] - time_samples[prev_idx];
-                double real_dt = t - time_samples[prev_idx];
+                prev_x = hist_data_transform[prev_idx].TransformAffine(hist_data_pos[prev_idx][i]),
+                next_x = hist_data_transform[next_idx].TransformAffine(hist_data_pos[next_idx][i]);
+                sample_dt = time_samples[next_idx] - time_samples[prev_idx];
+                real_dt = t - time_samples[prev_idx];
                 double lambda = real_dt / sample_dt;
-                GfVec3f x = prev_x * (1 - lambda) + next_x * lambda;
+                x = prev_x * (1 - lambda) + next_x * lambda;
+
+                if (itr == itr_n + 1)
+                    break;
                 double d = pxr::GfDot(x - camera_position, beta);
                 double prev_d = pxr::GfDot(prev_x - camera_position, beta);
 
-                double f = d + c * (t - time);
-                double df = (d - prev_d) / real_dt + c;
+                double f = d - c * (t - time);
+                double df = (d - prev_d) / real_dt - c;
                 double step = 1;
                 if (df != 0)
                     step = f / df * damping;
@@ -295,13 +304,43 @@ void Hd_USTC_CG_Mesh::Sync(
                     t = 0.0f;
                     break;
                 }
+                if (t > time_samples.back()) {
+                    t = time_samples.back();
+                    break;
+                }
             }
-            pxr::GfMatrix4d vert_transform = usdgeom.ComputeLocalToWorldTransform(t);
-            pxr::VtArray<pxr::GfVec3f> vertices_tmp;
-            usdgeom.GetPointsAttr().Get(&vertices_tmp, t);
-            vertices[i] = vert_transform.TransformAffine(vertices_tmp[i]);
+
+            if (t == 0.0f) {
+                if (hist_data_transform.size() > 0) {
+                    vertices[i] = hist_data_transform[0].TransformAffine(hist_data_pos[0][i]);
+                    GfVec3f dir = vertices[i] - camera_position;
+                    vertices[i] = vertices[i] +
+                                  gamma * gamma / (gamma + 1) * pxr::GfDot(dir, beta) * beta -
+                                  gamma * (t - time) * free_camera->_velocity;
+                }
+                cur_velocity[i] = GfVec3f(0.0);
+            }
+            else if (t == time_samples.back()) {
+                if (hist_data_transform.size() > 0) {
+                    vertices[i] = hist_data_transform.back().TransformAffine((hist_data_pos.back())[i]);
+                    GfVec3f dir = vertices[i] - camera_position;
+                    vertices[i] = vertices[i] +
+                                  gamma * gamma / (gamma + 1) * pxr::GfDot(dir, beta) * beta -
+                                  gamma * (t - time) * free_camera->_velocity;
+                }
+                cur_velocity[i] = GfVec3f(0.0);
+            }
+            else {
+                vertices[i] = x;
+                GfVec3f dir = vertices[i] - camera_position;
+                vertices[i] = vertices[i] +
+                              gamma * gamma / (gamma + 1) * pxr::GfDot(dir, beta) * beta -
+                              gamma * (t - time) * free_camera->_velocity;
+                cur_velocity[i] = (x - prev_x) / real_dt;
+            }
         }
         points = vertices;
+        vertex_velocity = cur_velocity;
         transform.SetIdentity();
     }
     else if (!_static && able_relativity_light)
