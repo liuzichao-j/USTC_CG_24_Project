@@ -87,7 +87,10 @@ void main()
         occlusion += (samp_depth > frag_depth ? 1.0 : 0.0) * rangeCheck;
     }
     occlusion = 1.0 - occlusion / kernelSize;
-    occlusion = pow(occlusion, 1.0 / 2.2);
+    // occlusion = pow(occlusion, 1.0 / 2.2);
+
+    // Trick: 纯视觉经验地把 ssao 调到一个更明显的值，而不是采用 gamma 校正
+    occlusion = pow(occlusion, 2.0);
 
     Color.rgb = occlusion * base_color.rgb;
     Color.a = 1.0;
