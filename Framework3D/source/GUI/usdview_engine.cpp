@@ -112,6 +112,43 @@ void UsdviewEngineImpl::DrawMenuBar()
         }
         ImGui::EndMenu();
     }
+    
+	if (engine_status.cam_type == CamType::First) {
+        const float camspd_width = 192.0f;
+        const float camspd_margin = 36.0f;
+        // https://stackoverflow.com/questions/58044749
+        ImGui::NextColumn();
+        FirstPersonCamera::LockState lockstate = ((FirstPersonCamera*)free_camera_.get())->GetLockState();
+        float camera_speed = ((FirstPersonCamera*)free_camera_.get())->PublicCameraVelocity.GetLength();
+        std::string text = "No Lock";
+
+        switch (lockstate)
+        {
+            case 0: text = "No Lock";
+				break;
+            case 1: text = "Lock Movement";
+				break;
+            case 2: text = "Lock Velocity"; 
+				break;
+        }
+        
+        auto posX =
+            (ImGui::GetCursorPosX() + ImGui::GetColumnWidth() -
+             ImGui::CalcTextSize(text.c_str()).x - ImGui::GetScrollX() -
+             2 * ImGui::GetStyle().ItemSpacing.x) - camspd_width - camspd_margin;
+        if (posX > ImGui::GetCursorPosX())
+            ImGui::SetCursorPosX(posX);
+        ImGui::Text("%s", text);
+
+        ImGui::NextColumn();
+        auto velo_posX =
+            (ImGui::GetCursorPosX() + ImGui::GetColumnWidth() -
+             camspd_width - ImGui::GetScrollX() -
+             2 * ImGui::GetStyle().ItemSpacing.x);
+        if (velo_posX > ImGui::GetCursorPosX())
+            ImGui::SetCursorPosX(velo_posX);
+        ImGui::Text("v = %.2fm/s = %.2fc", camera_speed, camera_speed / GlobalUsdStage::speed_of_light);
+    }
 
     ImGui::EndMenuBar();
 }
@@ -132,7 +169,7 @@ void UsdviewEngineImpl::OnFrame(float delta_time, NodeTree* node_tree, NodeTreeE
     renderer_->SetRendererAov(HdAovTokens->color);
     renderer_->SetRendererSetting(TfToken("RenderNodeTree"), VtValue((void*)node_tree));
     renderer_->SetRendererSetting(TfToken("RenderNodeTreeExecutor"), VtValue((void*)executor));
-    renderer_->SetRendererSetting(TfToken("CameraVelocity"), VtValue((void*)&(free_camera_->m_CameraVelocity)));
+    renderer_->SetRendererSetting(TfToken("CameraVelocity"), VtValue((void*)&(free_camera_->PublicCameraVelocity)));
     renderer_->SetRendererSetting(TfToken("TimeCode"), VtValue((void*)&(timecode)));
     renderer_->SetRendererSetting(TfToken("USDPrim"), VtValue((void*)&(root)));
     UsdStageWeakPtr global_usd_stage_weak = GlobalUsdStage::global_usd_stage;

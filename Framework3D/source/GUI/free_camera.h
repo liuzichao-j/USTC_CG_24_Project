@@ -25,13 +25,14 @@ class FreeCamera : public pxr::GfCamera {
         MouseButtonCount
     };
     pxr::GfVec2f m_ViewportSize = pxr::GfVec2f(0.0f);
-    pxr::GfVec3f m_CameraVelocity = { 0, 0, 0 };
+    pxr::GfVec3f PublicCameraVelocity = { 0, 0, 0 };
 
    protected:
     pxr::GfVec3f m_CameraPos = { -10, 0, 0 };
     pxr::GfVec3f m_CameraRight = { 0, 1, 0 };
     pxr::GfVec3f m_CameraUp = { 0, 0, 1 };
     pxr::GfVec3f m_CameraDir = { 1, 0, 0 };
+    pxr::GfVec3f m_CameraVelocity = { 0, 0, 0 };
     float m_CameraSpeedDecay = 0.9f;
     float m_MoveSpeed = 0.0f;      // movement speed in units/second
     float m_RotateSpeed = .03f;  // mouse sensitivity in radians/pixel
@@ -42,6 +43,13 @@ class FreeCamera : public pxr::GfCamera {
 
 class FirstPersonCamera : public FreeCamera {
    public:
+    typedef enum
+    {
+        NoLock,
+        LockMovement,
+        LockVelocity
+    } LockState;
+
     FirstPersonCamera();
     void KeyboardUpdate() override;
     void MousePosUpdate(double xpos, double ypos) override;
@@ -49,6 +57,7 @@ class FirstPersonCamera : public FreeCamera {
     void Animate(float deltaT) override;
     void AnimateSmooth(float deltaT);
     void MouseScrollUpdate(double offset) override;
+    LockState GetLockState() { return lockstate; }
 
 private:
     std::pair<bool, pxr::GfMatrix4f> AnimateRoll(pxr::GfMatrix4f initialRotation);
@@ -82,6 +91,7 @@ private:
         KeyboardControlCount,
     } KeyboardControls;
 
+
     const std::unordered_map<int, int> keyboardMap = {
         { ImGuiKey_Q, KeyboardControls::MoveDown },
         { ImGuiKey_E, KeyboardControls::MoveUp },
@@ -98,6 +108,7 @@ private:
         { ImGuiKey_LeftShift, KeyboardControls::SpeedUp },
         { ImGuiKey_LeftCtrl, KeyboardControls::SlowDown },
     };
+    const int keyLockSwitch = ImGuiKey_Tab;
 
     const std::unordered_map<int, int> mouseButtonMap = {
         { ImGuiMouseButton_Left, MouseButtons::Left },
@@ -107,6 +118,7 @@ private:
 
     std::array<bool, KeyboardControls::KeyboardControlCount> keyboardState = { false };
     std::array<bool, MouseButtons::MouseButtonCount> mouseButtonState = { false };
+    LockState lockstate = LockState::NoLock;
 };
 
 class ThirdPersonCamera : public FreeCamera {

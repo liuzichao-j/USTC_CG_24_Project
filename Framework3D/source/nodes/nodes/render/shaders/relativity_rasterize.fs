@@ -138,6 +138,8 @@ void main() {
 
     diffuseColor = newColor(diffuseColor, multiplier);
     // diffuseColor = abs(position - camPos) / 100;
+
+    // diffuseColor = vec3(multiplier);
     
     metallicRoughness = texture(metallicRoughnessSampler, vTexcoord).yz;
 

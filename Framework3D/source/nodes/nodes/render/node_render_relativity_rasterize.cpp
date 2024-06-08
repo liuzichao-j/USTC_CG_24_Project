@@ -126,11 +126,6 @@ static void node_exec(ExeParams params)
 
     shader_handle->shader.setVec3("camPos", camera_pos);
 
-    if (free_camera->_velocity.GetLength() >= speed_of_light) {
-        free_camera->_velocity.Normalize();
-        free_camera->_velocity *= speed_of_light;
-    }
-
     shader_handle->shader.setVec3("camSpeed", GfVec3f(0.0, 0.0, 0.0));
     shader_handle->shader.setFloat("lightSpeed", 10000000);
     glColor4f(0.0, 0.0, 0.0, 0.2);

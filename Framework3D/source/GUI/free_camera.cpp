@@ -59,7 +59,7 @@ void FirstPersonCamera::MouseButtonUpdate(int button)
 std::pair<bool, pxr::GfVec3f> FirstPersonCamera::AnimateTranslation(float deltaT)
 {
     m_MoveMaxSpeed = GlobalUsdStage::speed_of_light;
-    m_MoveAcceleration = std::min(1.0f, m_MoveMaxSpeed / 10.f);
+    m_MoveAcceleration = std::min(1.0f, m_MoveMaxSpeed * 0.1f);
 
     bool cameraDirty = false;
     float moveStep = deltaT * m_MoveAcceleration;
@@ -102,13 +102,41 @@ std::pair<bool, pxr::GfVec3f> FirstPersonCamera::AnimateTranslation(float deltaT
     }
     if (cameraMoveVec.GetLength() > m_MoveMaxSpeed)
         cameraMoveVec = cameraMoveVec.GetNormalized() * m_MoveMaxSpeed;
+
+    if (ImGui::IsKeyPressed(ImGuiKey(keyLockSwitch)))
+    {
+        lockstate = (LockState)(((int)lockstate + 1) % 3);
+    }
     return std::make_pair(cameraDirty, cameraMoveVec);
 }
 
 void FirstPersonCamera::UpdateCamera(pxr::GfVec3f cameraMoveVec, pxr::GfMatrix4f cameraRotation, double delta_time)
 {
     m_CameraVelocity = cameraMoveVec / delta_time;
-    m_CameraPos += cameraMoveVec;
+
+    float speed_of_light = GlobalUsdStage::speed_of_light;
+    if (m_CameraVelocity.GetLength() >= speed_of_light) {
+        m_CameraVelocity = m_CameraVelocity.GetNormalized() * speed_of_light;
+    }
+
+    if (lockstate == LockState::LockVelocity) 
+    {
+        PublicCameraVelocity = { 0.0, 0.0, 0.0 };
+    }
+    else 
+    {
+        PublicCameraVelocity = m_CameraVelocity;
+    }
+    
+    if (lockstate == LockState::LockMovement) 
+    {
+        m_CameraPos += {0.00001, 0.0, 0.0};
+    }
+    else
+    {
+        m_CameraPos += cameraMoveVec;
+    }
+
     m_CameraDir = cameraRotation.TransformAffine(m_CameraDir).GetNormalized();
     m_CameraUp = cameraRotation.TransformAffine(m_CameraUp).GetNormalized();
     m_CameraRight = pxr::GfCross(m_CameraDir, m_CameraUp).GetNormalized();

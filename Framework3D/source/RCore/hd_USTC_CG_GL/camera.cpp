@@ -20,7 +20,7 @@ void Hd_USTC_CG_Camera::Sync(
     _viewMatrix = _inverseViewMatrix.GetInverse();
 
     _velocity = *(static_cast<Hd_USTC_CG_RenderParam*>(renderParam)->camera_velocity);
-    if (_velocity.GetLength() < 0.001f)
+    if (_velocity.GetLength() < 0.00001f)
         _velocity = { 0.0, 0.0, 0.0 };
 }
 
