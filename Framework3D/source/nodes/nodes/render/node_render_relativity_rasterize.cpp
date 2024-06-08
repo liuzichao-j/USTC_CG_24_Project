@@ -133,6 +133,9 @@ static void node_exec(ExeParams params)
 
     if (draw_grid) 
     {
+        GfMatrix4f model = GfMatrix4f(1.0);
+        model.SetIdentity();
+        shader_handle->shader.setMat4("model", model);
         shader_handle->shader.setVec3("camSpeed", GfVec3f(0.0, 0.0, 0.0));
         shader_handle->shader.setFloat("lightSpeed", 10000000);
         glColor4f(0.0, 0.0, 0.0, 0.2);
