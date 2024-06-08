@@ -19,7 +19,6 @@ const float TWO_PI = 6.2831853071;
 vec3 bg_color(float t)
 {
 	return mix(vec3(0.04), vec3(0.8, 0.8, 1.0), t * t);
-	return mix(vec3(0.04), vec3(0.15, 0.15, 0.2), t * t);
 }
 
 void main() {
