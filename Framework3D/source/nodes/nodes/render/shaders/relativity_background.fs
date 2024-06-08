@@ -18,6 +18,7 @@ const float TWO_PI = 6.2831853071;
 
 vec3 bg_color(float t)
 {
+	return mix(vec3(0.04), vec3(0.8, 0.8, 1.0), t * t);
 	return mix(vec3(0.04), vec3(0.15, 0.15, 0.2), t * t);
 }
 
@@ -40,7 +41,7 @@ void main() {
 	{
 		float dist = length(texture(positionSampler, uv).xyz - position);
 		float decay = 1.0, decaydist = 10.0;
-		if(dist > decaydist) decay = pow(1.5, -dist + decaydist);
+		if(dist > decaydist) decay = pow(1.4, -dist + decaydist);
 		vec3 color_val = texture(baseColorSampler, uv).xyz;
 		Color = vec4(mix(env_color, color_val, decay), 1.0);
 	}
