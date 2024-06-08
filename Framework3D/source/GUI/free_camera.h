@@ -34,11 +34,11 @@ class FreeCamera : public pxr::GfCamera {
     pxr::GfVec3f m_CameraDir = { 1, 0, 0 };
     pxr::GfVec3f m_CameraVelocity = { 0, 0, 0 };
     float m_CameraSpeedDecay = 0.9f;
+    float m_CameraSpeedAdjustDecay = 0.03f;
     float m_MoveSpeed = 0.0f;      // movement speed in units/second
     float m_RotateSpeed = .03f;  // mouse sensitivity in radians/pixel
     float m_MoveMaxSpeed = 8.f;
     float m_MoveAcceleration = 0.5f;
-    float m_MoveSpeedScale = 1.0f;
 };
 
 class FirstPersonCamera : public FreeCamera {

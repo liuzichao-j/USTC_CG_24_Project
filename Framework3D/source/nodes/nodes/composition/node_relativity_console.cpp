@@ -13,6 +13,9 @@ static void node_declare(NodeDeclarationBuilder& b)
     b.add_input<decl::Float>("Speed of Light").min(0.0).max(100.0).default_val(50.0);
     GlobalUsdStage::relativity_console_bind_data.push_back(&GlobalUsdStage::speed_of_light);
 
+    b.add_input<decl::Float>("Max Camera Speed").min(0.0).max(1.0).default_val(0.9);
+    GlobalUsdStage::relativity_console_bind_data.push_back(&GlobalUsdStage::camera_max_speed);
+
     b.add_input<decl::Int>("Use Limited-C Transform").min(0).max(1).default_val(1);
     GlobalUsdStage::relativity_console_bind_data.push_back(&GlobalUsdStage::enable_limited_light_speed_transform);
 

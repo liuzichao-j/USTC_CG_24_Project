@@ -58,50 +58,60 @@ void FirstPersonCamera::MouseButtonUpdate(int button)
 
 std::pair<bool, pxr::GfVec3f> FirstPersonCamera::AnimateTranslation(float deltaT)
 {
-    m_MoveMaxSpeed = GlobalUsdStage::speed_of_light;
-    m_MoveAcceleration = std::min(1.0f, m_MoveMaxSpeed * 0.1f);
-
     bool cameraDirty = false;
+
+    float set_max_speed = GlobalUsdStage::speed_of_light * GlobalUsdStage::camera_max_speed;
+
+    float maxSpeed = std::min(m_MoveMaxSpeed, set_max_speed * 0.5f);
+    m_MoveAcceleration = std::min(1.0f, maxSpeed * 0.1f);
+
+    if (keyboardState[KeyboardControls::SpeedUp]) {
+        maxSpeed = set_max_speed;
+		m_MoveAcceleration = maxSpeed * 0.1f;
+    }
+    if (keyboardState[KeyboardControls::SlowDown]) {
+        maxSpeed = std::min(m_MoveMaxSpeed * 0.1f, set_max_speed * 0.1f);
+		m_MoveAcceleration = std::min(1.0f, maxSpeed * 0.1f);
+    }
+
     float moveStep = deltaT * m_MoveAcceleration;
-    pxr::GfVec3f cameraMoveVec = m_CameraVelocity * deltaT;
-
-    if (keyboardState[KeyboardControls::SpeedUp])
-        moveStep *= 3.f;
-
-    if (keyboardState[KeyboardControls::SlowDown])
-        moveStep *= .1f;
+    pxr::GfVec3f cameraMoveVec = m_CameraVelocity * deltaT * m_CameraSpeedDecay;
+    pxr::GfVec3f cameraMoveDir = { 0.0, 0.0, 0.0 };
 
     if (keyboardState[KeyboardControls::MoveForward]) {
-        cameraDirty = true;
-        cameraMoveVec += m_CameraDir * moveStep;
+		cameraMoveDir = m_CameraDir;
     }
 
     if (keyboardState[KeyboardControls::MoveBackward]) {
-        cameraDirty = true;
-        cameraMoveVec += -m_CameraDir * moveStep;
+		cameraMoveDir = -m_CameraDir;
     }
 
     if (keyboardState[KeyboardControls::MoveLeft]) {
-        cameraDirty = true;
-        cameraMoveVec += -m_CameraRight * moveStep;
+		cameraMoveDir = -m_CameraRight;
     }
 
     if (keyboardState[KeyboardControls::MoveRight]) {
-        cameraDirty = true;
-        cameraMoveVec += m_CameraRight * moveStep;
+		cameraMoveDir = m_CameraRight;
     }
 
     if (keyboardState[KeyboardControls::MoveUp]) {
-        cameraDirty = true;
-        cameraMoveVec += m_CameraUp * moveStep;
+		cameraMoveDir = m_CameraUp;
     }
 
     if (keyboardState[KeyboardControls::MoveDown]) {
-        cameraDirty = true;
-        cameraMoveVec += -m_CameraUp * moveStep;
+		cameraMoveDir = -m_CameraUp;
     }
-    if (cameraMoveVec.GetLength() > m_MoveMaxSpeed)
-        cameraMoveVec = cameraMoveVec.GetNormalized() * m_MoveMaxSpeed;
+
+	cameraDirty = true;
+    cameraMoveVec += moveStep * cameraMoveDir;
+    if (cameraMoveVec.GetLength() > set_max_speed * deltaT) 
+        cameraMoveVec = set_max_speed * deltaT * cameraMoveVec.GetNormalized();
+    if (cameraMoveVec.GetLength() > maxSpeed * deltaT) 
+    {
+        float srcv = cameraMoveVec.GetLength();
+        float destv = maxSpeed * deltaT;
+        cameraMoveVec = (srcv + (destv - srcv) * m_CameraSpeedAdjustDecay) * cameraMoveVec.GetNormalized();
+    }
 
     if (ImGui::IsKeyPressed(ImGuiKey(keyLockSwitch)))
     {
@@ -198,7 +208,7 @@ void FirstPersonCamera::Animate(float deltaT)
     cameraDirty |= translateResult.first;
     const pxr::GfVec3f& cameraMoveVec = translateResult.second;
 
-	UpdateCamera(cameraMoveVec * m_CameraSpeedDecay, cameraRotation, deltaT);
+	UpdateCamera(cameraMoveVec, cameraRotation, deltaT);
 }
 
 void FirstPersonCamera::AnimateSmooth(float deltaT)
@@ -255,7 +265,7 @@ void FirstPersonCamera::AnimateSmooth(float deltaT)
     cameraDirty |= translateResult.first;
     const pxr::GfVec3f& cameraMoveVec = translateResult.second;
 
-	UpdateCamera(cameraMoveVec * m_CameraSpeedDecay, cameraRotation, deltaT);
+	UpdateCamera(cameraMoveVec, cameraRotation, deltaT);
 }
 
 void FirstPersonCamera::MouseScrollUpdate(double offset)

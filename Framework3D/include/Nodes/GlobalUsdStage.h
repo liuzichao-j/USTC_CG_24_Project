@@ -13,6 +13,7 @@ struct GlobalUsdStage {
 
     static constexpr int timeCodesPerSecond = 15;
     static inline float speed_of_light = 1000.0f;
+    static inline float camera_max_speed = 0.9f;
     static inline int enable_limited_light_speed_transform = 1;
     static inline int iteration_num = 5;
     static inline float iteration_damping = 0.5;

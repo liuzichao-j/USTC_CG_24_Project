@@ -114,7 +114,7 @@ void UsdviewEngineImpl::DrawMenuBar()
     }
     
 	if (engine_status.cam_type == CamType::First) {
-        const float camspd_width = 192.0f;
+        const float camspd_width = 208.0f;
         const float camspd_margin = 36.0f;
         // https://stackoverflow.com/questions/58044749
         ImGui::NextColumn();
