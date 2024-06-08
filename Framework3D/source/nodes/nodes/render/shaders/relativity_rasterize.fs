@@ -134,7 +134,8 @@ void main() {
     texcoords = vTexcoord;
 
     // Constants
-    vec3 beta = (camSpeed - vertexVelocity) / lightSpeed;
+    vec3 velocity = (camSpeed - vertexVelocity) / (1 - dot(vertexVelocity, camSpeed) / lightSpeed / lightSpeed);
+    vec3 beta = velocity / lightSpeed;
     float gamma = 1 / sqrt(1 - dot(beta, beta));
     float multiplier = 1;
     if (length(beta) > 0)
