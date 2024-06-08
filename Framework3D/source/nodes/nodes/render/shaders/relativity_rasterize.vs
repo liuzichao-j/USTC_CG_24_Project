@@ -28,7 +28,7 @@ void main()
     vertexVelocity = aVelocity;
 
     // Constants
-    vec3 beta = camSpeed / lightSpeed;
+    vec3 beta = camSpeed/ lightSpeed;
     float gamma = 1 / sqrt(1 - dot(beta, beta));
 
     // Get the vector from the camera to the vertex

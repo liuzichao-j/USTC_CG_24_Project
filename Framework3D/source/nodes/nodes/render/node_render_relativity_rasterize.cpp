@@ -24,6 +24,8 @@ static void node_declare(NodeDeclarationBuilder& b)
     b.add_input<decl::String>("Vertex Shader").default_val("shaders/relativity_rasterize.vs");
     b.add_input<decl::String>("Fragment Shader").default_val("shaders/relativity_rasterize.fs");
     b.add_input<decl::Float>("Speed of Light").default_val(1.0f);
+    b.add_input<decl::Float>("Doppler Mix").min(0.0f).max(1.0f).default_val(1.0f);
+    b.add_input<decl::Int>("Draw Grid").min(0).max(1).default_val(1);
     b.add_output<decl::Texture>("Position");
     b.add_output<decl::Texture>("Depth");
     b.add_output<decl::Texture>("Texcoords");
@@ -38,6 +40,8 @@ static void node_exec(ExeParams params)
     auto meshes = params.get_input<MeshArray>("Meshes");
     MaterialMap materials = params.get_input<MaterialMap>("Materials");
     auto speed_of_light = params.get_input<float>("Speed of Light");
+    auto doppler_mix = params.get_input<float>("Doppler Mix");
+    int draw_grid = params.get_input<int>("Draw Grid");
 
     Hd_USTC_CG_Camera* free_camera;
 
@@ -125,20 +129,24 @@ static void node_exec(ExeParams params)
                            (float)camera_mat[3][2] };
 
     shader_handle->shader.setVec3("camPos", camera_pos);
+	shader_handle->shader.setFloat("dopplerMix", doppler_mix);
 
-    shader_handle->shader.setVec3("camSpeed", GfVec3f(0.0, 0.0, 0.0));
-    shader_handle->shader.setFloat("lightSpeed", 10000000);
-    glColor4f(0.0, 0.0, 0.0, 0.2);
-    glBegin(GL_LINES);
-    const int gridn = 20;
-    const float gridy = -0.01;
-    for (int i = -gridn; i <= gridn; ++i) {
-        glVertex3f(-gridn, i, gridy);
-        glVertex3f(gridn, i,  gridy);
-        glVertex3f(i, -gridn, gridy);
-        glVertex3f(i, gridn,  gridy);
+    if (draw_grid) 
+    {
+        shader_handle->shader.setVec3("camSpeed", GfVec3f(0.0, 0.0, 0.0));
+        shader_handle->shader.setFloat("lightSpeed", 10000000);
+        glColor4f(0.0, 0.0, 0.0, 0.2);
+        glBegin(GL_LINES);
+        const int gridn = 20;
+        const float gridy = -0.01;
+        for (int i = -gridn; i <= gridn; ++i) {
+            glVertex3f(-gridn, i, gridy);
+            glVertex3f(gridn, i, gridy);
+            glVertex3f(i, -gridn, gridy);
+            glVertex3f(i, gridn, gridy);
+        }
+        glEnd();
     }
-    glEnd();
 
     shader_handle->shader.setVec3("camSpeed", free_camera->_velocity);
     shader_handle->shader.setFloat("lightSpeed", speed_of_light);
