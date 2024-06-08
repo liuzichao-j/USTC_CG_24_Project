@@ -11,42 +11,24 @@
 #include "rich_type_buffer.hpp"
 #include "utils/draw_fullscreen.h"
 
-namespace USTC_CG::node_ssao {
+namespace USTC_CG::node_mix_color {
 static void node_declare(NodeDeclarationBuilder& b)
 {
-    b.add_input<decl::Camera>("Camera");
-    b.add_input<decl::Texture>("Color");
-    b.add_input<decl::Texture>("Position");
-    b.add_input<decl::Texture>("Depth");
-    b.add_input<decl::Texture>("Normal");
+    b.add_input<decl::Texture>("Color1");
+    b.add_input<decl::Texture>("Color2");
+    b.add_input<decl::Float>("Alpha").default_val(1.0f).min(0.0f).max(1.0f);
 
-    b.add_input<decl::Float>("Radius").default_val(0.1f).min(0.0f).max(1.0f);
-
-    // HW6: For HBAO you might need normal texture.
-
-    b.add_input<decl::String>("Shader").default_val("shaders/ssao.fs");
+    b.add_input<decl::String>("Shader").default_val("shaders/mix.fs");
     b.add_output<decl::Texture>("Color");
 }
 
 static void node_exec(ExeParams params)
 {
-    auto cameras = params.get_input<CameraArray>("Camera");
-    auto color = params.get_input<TextureHandle>("Color");
-    auto position_texture = params.get_input<TextureHandle>("Position");
-    auto depth_texture = params.get_input<TextureHandle>("Depth");
-    auto normal_texture = params.get_input<TextureHandle>("Normal");
-    auto radius = params.get_input<float>("Radius");
+    auto color1 = params.get_input<TextureHandle>("Color1");
+    auto color2 = params.get_input<TextureHandle>("Color2");
+    auto alpha = params.get_input<float>("Alpha");
 
-    Hd_USTC_CG_Camera* free_camera;
-
-    for (auto camera : cameras) {
-        if (camera->GetId() != SdfPath::EmptyPath()) {
-            free_camera = camera;
-            break;
-        }
-    }
-
-    auto size = color->desc.size;
+    auto size = color1->desc.size;
 
     unsigned int VBO, VAO;
 
@@ -78,26 +60,15 @@ static void node_exec(ExeParams params)
     shader->shader.use();
     shader->shader.setVec2("iResolution", size);
 
-    shader->shader.setInt("positionSampler", 0);
+    shader->shader.setInt("baseColorSampler1", 0);
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, position_texture->texture_id);
+    glBindTexture(GL_TEXTURE_2D, color1->texture_id);
 
-    shader->shader.setInt("normalSampler", 1);
+    shader->shader.setInt("baseColorSampler2", 1);
     glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, normal_texture->texture_id);
+    glBindTexture(GL_TEXTURE_2D, color2->texture_id);
 
-    shader->shader.setInt("depthSampler", 2);
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, depth_texture->texture_id);
-
-    shader->shader.setInt("baseColorSampler", 3);
-    glActiveTexture(GL_TEXTURE3);
-    glBindTexture(GL_TEXTURE_2D, color->texture_id);
-
-    shader->shader.setMat4("view", GfMatrix4f(free_camera->_viewMatrix));
-    shader->shader.setMat4("projection", GfMatrix4f(free_camera->_projMatrix));
-
-    shader->shader.setFloat("arg1", radius);
+    shader->shader.setFloat("alpha", alpha);
 
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -112,8 +83,8 @@ static void node_register()
 {
     static NodeTypeInfo ntype;
 
-    strcpy(ntype.ui_name, "SSAO");
-    strcpy_s(ntype.id_name, "render_ssao");
+    strcpy(ntype.ui_name, "Mix Color");
+    strcpy_s(ntype.id_name, "render_mix_color");
 
     render_node_type_base(&ntype);
     ntype.node_execute = node_exec;
@@ -122,4 +93,4 @@ static void node_register()
 }
 
 NOD_REGISTER_NODE(node_register)
-}  // namespace USTC_CG::node_ssao
+}  // namespace USTC_CG::node_mix_color

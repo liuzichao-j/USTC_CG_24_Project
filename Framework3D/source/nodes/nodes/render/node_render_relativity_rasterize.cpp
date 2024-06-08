@@ -137,7 +137,7 @@ static void node_exec(ExeParams params)
         shader_handle->shader.setFloat("lightSpeed", 10000000);
         glColor4f(0.0, 0.0, 0.0, 0.2);
         glBegin(GL_LINES);
-        const int gridn = 20;
+        const int gridn = 50;
         const float gridy = -0.01;
         for (int i = -gridn; i <= gridn; ++i) {
             glVertex3f(-gridn, i, gridy);

@@ -11,7 +11,7 @@
 #include "rich_type_buffer.hpp"
 #include "utils/draw_fullscreen.h"
 
-namespace USTC_CG::node_ssao {
+namespace USTC_CG::node_post_process {
 static void node_declare(NodeDeclarationBuilder& b)
 {
     b.add_input<decl::Camera>("Camera");
@@ -19,12 +19,12 @@ static void node_declare(NodeDeclarationBuilder& b)
     b.add_input<decl::Texture>("Position");
     b.add_input<decl::Texture>("Depth");
     b.add_input<decl::Texture>("Normal");
+    b.add_input<decl::Float>("arg1").default_val(0.0f).min(0.0f).max(1.0f);
+    b.add_input<decl::Float>("arg2").default_val(0.0f).min(0.0f).max(1.0f);
+    b.add_input<decl::Float>("arg3").default_val(0.0f).min(0.0f).max(1.0f);
+    b.add_input<decl::Float>("arg4").default_val(0.0f).min(0.0f).max(1.0f);
 
-    b.add_input<decl::Float>("Radius").default_val(0.1f).min(0.0f).max(1.0f);
-
-    // HW6: For HBAO you might need normal texture.
-
-    b.add_input<decl::String>("Shader").default_val("shaders/ssao.fs");
+    b.add_input<decl::String>("Shader").default_val("shaders/blur.fs");
     b.add_output<decl::Texture>("Color");
 }
 
@@ -35,8 +35,10 @@ static void node_exec(ExeParams params)
     auto position_texture = params.get_input<TextureHandle>("Position");
     auto depth_texture = params.get_input<TextureHandle>("Depth");
     auto normal_texture = params.get_input<TextureHandle>("Normal");
-    auto radius = params.get_input<float>("Radius");
-
+    auto arg1 = params.get_input<float>("arg1");
+    auto arg2 = params.get_input<float>("arg2");
+    auto arg3 = params.get_input<float>("arg3");
+    auto arg4 = params.get_input<float>("arg4");
     Hd_USTC_CG_Camera* free_camera;
 
     for (auto camera : cameras) {
@@ -96,8 +98,10 @@ static void node_exec(ExeParams params)
 
     shader->shader.setMat4("view", GfMatrix4f(free_camera->_viewMatrix));
     shader->shader.setMat4("projection", GfMatrix4f(free_camera->_projMatrix));
-
-    shader->shader.setFloat("arg1", radius);
+    shader->shader.setFloat("arg1", arg1);
+    shader->shader.setFloat("arg2", arg2);
+    shader->shader.setFloat("arg3", arg3);
+    shader->shader.setFloat("arg4", arg4);
 
     glBindVertexArray(VAO);
     glDrawArrays(GL_TRIANGLES, 0, 6);
@@ -112,8 +116,8 @@ static void node_register()
 {
     static NodeTypeInfo ntype;
 
-    strcpy(ntype.ui_name, "SSAO");
-    strcpy_s(ntype.id_name, "render_ssao");
+    strcpy(ntype.ui_name, "Post Process");
+    strcpy_s(ntype.id_name, "render_post_process");
 
     render_node_type_base(&ntype);
     ntype.node_execute = node_exec;
@@ -122,4 +126,4 @@ static void node_register()
 }
 
 NOD_REGISTER_NODE(node_register)
-}  // namespace USTC_CG::node_ssao
+}  // namespace USTC_CG::node_post_process

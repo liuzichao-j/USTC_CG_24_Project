@@ -10,11 +10,11 @@ uniform sampler2D baseColorSampler;
 
 uniform mat4 projection;
 uniform mat4 view;
-uniform float radius;
+uniform float arg1;
 
 layout(location = 0) out vec4 Color;
 
-const int kernelSize = 128;
+const int kernelSize = 12;
 const float PI = 3.14159265359;
 
 //copied and adjusted from https://zhuanlan.zhihu.com/p/599263679
@@ -49,18 +49,18 @@ float len(vec3 v)
 
 void main() 
 {
-    const float uv_scale = 0.9;
+    const float uv_scale = 1.0;
     vec2 uv = gl_FragCoord.xy / iResolution * uv_scale + (1.0 - uv_scale) * 0.5;
     vec3 frag_pos = texture(positionSampler, uv).xyz;
     vec3 normal = texture(normalSampler, uv).xyz;
-    vec4 base_color = texture(baseColorSampler, uv);
     vec4 frag_pos_clip = projection * view * vec4(frag_pos, 1.0);
     float depth = frag_pos_clip.z / frag_pos_clip.w;
     
     if(len(normal) < 0.1)
     {
         //background
-        Color = base_color;
+        // Color = base_color;
+        Color = vec4(1.0);
         return;
     }
 
@@ -69,7 +69,7 @@ void main()
     {
         vec3 dir = hash33_sphere(vec3(uv, i)); 
         if(dot(dir, normal) < 0.0) dir = -dir;
-        vec3 samp = frag_pos + dir * radius;
+        vec3 samp = frag_pos + dir * arg1;
         vec4 samp_pos_clip = projection * view * vec4(samp, 1.0);
         vec3 samp_pos_camera_space = samp_pos_clip.xyz / samp_pos_clip.w;
         float samp_depth = samp_pos_camera_space.z;
@@ -83,15 +83,15 @@ void main()
 
         float frag_depth = texture(depthSampler, samp_uv).r;
 
-        float rangeCheck = smoothstep(0.0, 1.0, radius / (len(frag_pos - samp_pos)));
+        float rangeCheck = smoothstep(0.0, 1.0, arg1 / (len(frag_pos - samp_pos)));
         occlusion += (samp_depth > frag_depth ? 1.0 : 0.0) * rangeCheck;
     }
     occlusion = 1.0 - occlusion / kernelSize;
     // occlusion = pow(occlusion, 1.0 / 2.2);
 
     // Trick: 纯视觉经验地把 ssao 调到一个更明显的值，而不是采用 gamma 校正
-    occlusion = pow(occlusion, 2.0);
+    occlusion = pow(occlusion, 3.0);
 
-    Color.rgb = occlusion * base_color.rgb;
+    Color.rgb = vec3(occlusion);
     Color.a = 1.0;
 }
