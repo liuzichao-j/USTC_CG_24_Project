@@ -298,7 +298,16 @@ void Hd_USTC_CG_Mesh::Sync(
                     step = f / df * damping;
                 t -= step;
 
-                if (t < 0.0f || t > time_samples.back()) {
+                if (t < 0.0f) {
+                    x = hist_data_transform[0].TransformAffine(hist_data_pos[0][i]);
+                    d = pxr::GfDot(x - camera_position, beta);
+                    t = d / c + time;
+                    break;
+                }
+                if (t > time_samples.back()) {
+                    x = hist_data_transform.back().TransformAffine((hist_data_pos.back())[i]);
+                    d = pxr::GfDot(x - camera_position, beta);
+                    t = d / c + time;
                     break;
                 }
             }
