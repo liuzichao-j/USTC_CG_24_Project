@@ -27,25 +27,11 @@ void main()
     vertexPosition = vPosition.xyz / vPosition.w;
     vertexVelocity = aVelocity;
 
-    // Constants
-    vec3 beta = camSpeed/ lightSpeed;
+    vec3 beta = camSpeed / lightSpeed;
     float gamma = 1 / sqrt(1 - dot(beta, beta));
 
-    // Get the vector from the camera to the vertex
     vec3 dir = vertexPosition - camPos;
-    if(length(beta) > 0)
-    {
-        float dist = length(dir);
-
-        dir = dir + gamma*gamma/(gamma+1) * dot(beta, dir) * beta - gamma * dist * beta;
-
-        //dir = normalize(dir);
-        //float paradist = gamma * (dot(beta, dir) / length(beta) - length(beta) * length(dir));
-        // Change the direction
-        //dir = normalize(dir - gamma * beta + (gamma - 1) * beta * dot(beta, dir) / dot(beta, beta));
-        // Get the new position
-        //dir = dir * paradist / dot(beta, dir) * length(beta);
-    }
+    dir = dir + gamma * gamma / (gamma + 1) * dot(beta, dir) * beta - gamma * length(dir) * beta;
     vertexPosition = camPos + dir;
 
     vPosition = vec4(vertexPosition * vPosition.w, vPosition.w);

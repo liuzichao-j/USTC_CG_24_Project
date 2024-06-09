@@ -41,7 +41,7 @@ static void node_mass_spring_declare(NodeDeclarationBuilder& b)
     // Useful switches (0 or 1). You can add more if you like.
     b.add_input<decl::Int>("time integrator type").default_val(0).min(0).max(1); // 0 for implicit Euler, 1 for semi-implicit Euler
     b.add_input<decl::Int>("enable time profiling").default_val(0).min(0).max(1);
-    b.add_input<decl::Int>("enable damping").default_val(0).min(0).max(1);
+    b.add_input<decl::Int>("enable energy correction").default_val(0).min(0).max(2);
     b.add_input<decl::Int>("enable debug output").default_val(0).min(0).max(1);
 
     // Optional switches
@@ -112,7 +112,7 @@ static void node_mass_spring_exec(ExeParams params)
 			// --------------------------------------------------------------------------------------------------------
 
 			mass_spring->enable_sphere_collision = params.get_input<int>("enable sphere collision") == 1 ? true : false;
-			mass_spring->enable_damping = params.get_input<int>("enable damping") == 1 ? true : false;
+			mass_spring->enable_energy_correction = params.get_input<int>("enable energy correction");
 			mass_spring->time_integrator = params.get_input<int>("time integrator type") == 0 ? MassSpring::IMPLICIT_EULER : MassSpring::SEMI_IMPLICIT_EULER;
             mass_spring->enable_time_profiling = params.get_input<int>("enable time profiling") == 1 ? true : false;
             mass_spring->enable_debug_output = params.get_input<int>("enable debug output") == 1 ? true : false;

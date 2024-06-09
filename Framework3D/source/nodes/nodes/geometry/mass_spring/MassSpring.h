@@ -41,6 +41,7 @@ class MassSpring {
 
     // make matrix positive definite
     // Eigen::SparseMatrix<double> makeSPD(const Eigen::SparseMatrix<double> &A);
+    void toSPD(Eigen::SparseMatrix<double> &A);
     bool checkSPD(const Eigen::SparseMatrix<double> &A);
 
     Eigen::MatrixXd getVelocity() const
@@ -55,9 +56,9 @@ class MassSpring {
     // Detect collision and compute the penalty-based collision force with given sphere
     Eigen::MatrixXd getSphereCollisionForce(Eigen::Vector3d center, double radius);
 
-    bool set_dirichlet_bc_mask(const std::vector<bool>& mask);
-    bool update_dirichlet_bc_vertices(const MatrixXd &control_vertices); 
-    bool init_dirichlet_bc_vertices_control_pair(const MatrixXd &control_vertices,
+    virtual bool set_dirichlet_bc_mask(const std::vector<bool>& mask);
+    virtual bool update_dirichlet_bc_vertices(const MatrixXd &control_vertices); 
+    virtual bool init_dirichlet_bc_vertices_control_pair(const MatrixXd &control_vertices,
                                       const std::vector<bool>& control_mask);
 
     // Simulation parameters
@@ -82,6 +83,9 @@ class MassSpring {
     bool enable_check_SPD = false;
     bool enable_damping = true;
     bool enable_debug_output = false;
+
+    void update_sphere();
+    void collision_correction(Eigen::MatrixXd &X, Eigen::MatrixXd &vel, Eigen::Vector3d center, double radius);
 
    protected:
     Eigen::MatrixXd init_X;  // For reset

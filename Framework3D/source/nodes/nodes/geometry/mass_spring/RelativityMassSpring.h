@@ -40,7 +40,6 @@ class MassSpring {
     virtual Eigen::SparseMatrix<double> computeHessianSparse(double stiffness);
 
     // make matrix positive definite
-    // Eigen::SparseMatrix<double> makeSPD(const Eigen::SparseMatrix<double> &A);
     void toSPD(Eigen::SparseMatrix<double> &A);
     bool checkSPD(const Eigen::SparseMatrix<double> &A);
 
@@ -56,13 +55,6 @@ class MassSpring {
     // Detect collision and compute the penalty-based collision force with given sphere
     Eigen::MatrixXd getSphereCollisionForce(Eigen::Vector3d center, double radius);
 
-    /*
-    virtual bool set_dirichlet_bc_mask(const std::vector<bool>& mask);
-    virtual bool update_dirichlet_bc_vertices(const MatrixXd &control_vertices); 
-    virtual bool init_dirichlet_bc_vertices_control_pair(const MatrixXd &control_vertices,
-                                      const std::vector<bool>& control_mask);
-    */
-
     // Simulation parameters
     double stiffness = 1000.0;
     double damping = 0.995;
@@ -72,7 +64,6 @@ class MassSpring {
     Eigen::Vector3d gravity = { 0, 0, -9.8 };
     Eigen::Vector3d wind_ext_acc = { 0, 0, 0 }; // (HW TODO) feel free to change the wind acceleration
 
-    // (HW Optional) sphere collision parameters
     double collision_penalty_k = 10000.0;
     double collision_scale_factor = 1.1; 
     Eigen::Vector3f sphere_center = Eigen::Vector3f(0, -0.5, 0.2);
@@ -83,7 +74,7 @@ class MassSpring {
     bool enable_time_profiling = false;
     bool enable_make_SPD = false;
     bool enable_check_SPD = false;
-    bool enable_damping = true;
+    int enable_energy_correction = 0;
     bool enable_debug_output = false;
 
     float speed_of_light = 1000.0f;
@@ -97,8 +88,6 @@ class MassSpring {
 
     std::vector<bool>
         dirichlet_bc_mask;  // mask for marking fixed points (Dirichlet boundary condition)
-    /*
-    std::vector<std::pair<int, int>> dirichlet_bc_control_pair;
-    */
 };
+
 }  // namespace USTC_CG::node_relativity_mass_spring

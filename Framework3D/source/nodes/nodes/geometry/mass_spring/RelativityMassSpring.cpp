@@ -1,7 +1,24 @@
 #include "RelativityMassSpring.h"
 
+#include <omp.h>
+
 #include <cmath>
 #include <iostream>
+
+// per OpenMP standard, _OPENMP defined when compiling with OpenMP
+#ifdef _OPENMP
+#ifdef _MSC_VER
+// must use MSVC __pragma here instead of _Pragma otherwise you get an internal
+// compiler error. still an issue in Visual Studio 2022
+#define OMP_PARALLEL_FOR __pragma(omp parallel for)
+// any other standards-compliant C99/C++11 compiler
+#else
+#define OMP_PARALLEL_FOR _Pragma("omp parallel for")
+#endif  // _MSC_VER
+// no OpenMP support
+#else
+#define OMP_PARALLEL_FOR
+#endif  // _OPENMP
 
 namespace USTC_CG::node_relativity_mass_spring {
 MassSpring::MassSpring(const Eigen::MatrixXd& X, const EdgeSet& E)
@@ -23,7 +40,6 @@ MassSpring::MassSpring(const Eigen::MatrixXd& X, const EdgeSet& E)
     // Initialize the mask for Dirichlet boundary condition
     dirichlet_bc_mask.resize(X.rows(), false);
 
-    // (HW_TODO) Fix two vertices, feel free to modify this
     unsigned n_fix = sqrt(X.rows());  // Here we assume the cloth is square
     dirichlet_bc_mask[0] = true;
     dirichlet_bc_mask[n_fix - 1] = true;
@@ -39,17 +55,13 @@ void MassSpring::step()
     // resolution
     double mass_per_vertex = mass / n_vertices;
 
-    //----------------------------------------------------
-    // (HW Optional) Bonus part: Sphere collision
     Eigen::MatrixXd acceleration_collision =
         getSphereCollisionForce(sphere_center.cast<double>(), sphere_radius);
-    //----------------------------------------------------
-
+    
     if (time_integrator == IMPLICIT_EULER) {
         // Implicit Euler
         TIC(step)
 
-        // (HW TODO)
         auto H = computeHessianSparse(stiffness);  // size = [nx3, nx3]
         // toSPD(H);
 
@@ -63,6 +75,7 @@ void MassSpring::step()
 
         // compute Y
         Eigen::MatrixXd Y = X + h * vel;
+        OMP_PARALLEL_FOR
         for (int i = 0; i < n_vertices; i++) {
             auto beta = vel.row(i) / speed_of_light;
             auto gamma = 1.0 / std::sqrt(1.0 - beta.squaredNorm());
@@ -80,6 +93,7 @@ void MassSpring::step()
         }
 
         auto grad_g = computeGrad(stiffness);
+        OMP_PARALLEL_FOR
         for (int i = 0; i < n_vertices; i++) {
             if (!dirichlet_bc_mask[i]) {
                 auto beta = vel.row(i) / speed_of_light;
@@ -99,14 +113,148 @@ void MassSpring::step()
         }
         auto delta_X = unflatten(delta_X_flatten);
 
+        if (enable_energy_correction) {
+            // Energy correction
+            double old_energy_p = computeEnergy(stiffness);
+            double old_energy_k = 0;
+            for (int i = 0; i < n_vertices; i++) {
+                auto beta = vel.row(i) / speed_of_light;
+                old_energy_k += mass_per_vertex * speed_of_light * speed_of_light /
+                                std::sqrt(1 - beta.squaredNorm());
+                old_energy_p -= mass_per_vertex * (acceleration_ext.dot(X.row(i)) +
+                                                   acceleration_collision.row(i).dot(X.row(i)));
+            }
+            if (enable_debug_output)
+                printf(
+                    "old energy p: %6lf, old energy k: %6lf, old energy: %6lf\n",
+                    old_energy_p,
+                    old_energy_k,
+                    old_energy_p + old_energy_k);
+            OMP_PARALLEL_FOR
+            for (int i = 0; i < n_vertices; i++) {
+                X.row(i) -= delta_X.row(i);
+            }
+
+            double new_energy_p = computeEnergy(stiffness);
+            double new_energy_k = 0;
+            for (int i = 0; i < n_vertices; i++) {
+                double beta = delta_X.row(i).norm() / h / speed_of_light;
+                if (beta > 1 - 1e-3) {
+                    beta = 1 - 1e-3;
+                }
+                new_energy_k +=
+                    mass_per_vertex * speed_of_light * speed_of_light / std::sqrt(1 - beta * beta);
+                new_energy_p -= mass_per_vertex * (acceleration_ext.dot(X.row(i)) +
+                                                   acceleration_collision.row(i).dot(X.row(i)));
+            }
+            if (enable_debug_output)
+                printf(
+                    "new energy p: %6lf, new energy k: %6lf, new energy: %6lf\n",
+                    new_energy_p,
+                    new_energy_k,
+                    new_energy_p + new_energy_k);
+            // Potential energy transfer to kinetic energy
+            const double aim_delta_energy_k = old_energy_p - new_energy_p;
+
+            if (enable_energy_correction == 1) {
+                // Method 1: Correct a along tangent direction
+                double delta_energy_k = 0;
+                for (int i = 0; i < n_vertices; i++) {
+                    auto beta = vel.row(i) / speed_of_light;
+                    delta_energy_k += beta.dot(delta_X.row(i) / h - vel.row(i)) * mass_per_vertex *
+                                      speed_of_light / std::pow(1 - beta.squaredNorm(), 1.5);
+                }
+                if (enable_debug_output)
+                    printf("delta energy k: %lf\n", delta_energy_k);
+                double multiplier;
+                if (delta_energy_k == 0) {
+                    // For those who doesn't have a rising tangent direction. Not work in secant
+                    // method.
+                    multiplier = 1;
+                }
+                else if (delta_energy_k > 0) {
+                    // Make energy less
+                    if (aim_delta_energy_k > delta_energy_k) {
+                        // Not exceed the aim
+                        multiplier = 1;
+                    }
+                    else if (aim_delta_energy_k < 0) {
+                        // Correction should not change the direction
+                        multiplier = 0;
+                    }
+                    else {
+                        multiplier = aim_delta_energy_k / delta_energy_k;
+                    }
+                }
+                else if (delta_energy_k < 0) {
+                    // Already make energy less
+                    // If aim is less than the current energy, we do not set it to fit aim, because
+                    // this way there will be huge a, v and x, which means explosion. To avoid fast
+                    // change, just leave it the same.
+                    multiplier = 1;
+                }
+                if (enable_debug_output)
+                    printf("aim: %lf, multiplier: %lf\n", aim_delta_energy_k, multiplier);
+                OMP_PARALLEL_FOR
+                for (int i = 0; i < n_vertices; i++) {
+                    X.row(i) += delta_X.row(i);
+                    delta_X.row(i) *= multiplier;
+                }
+            }
+            else if (enable_energy_correction == 2) {
+                // Method 2: Correct a along secant direction
+                double delta_energy_k = new_energy_k - old_energy_k;
+                if (enable_debug_output)
+                    printf("delta energy k: %lf\n", delta_energy_k);
+                double multiplier;
+                if (delta_energy_k == 0) {
+                    // For those who doesn't have a rising tangent direction. Not work in secant
+                    // method.
+                    multiplier = 1;
+                }
+                else if (delta_energy_k > 0) {
+                    // Make energy less
+                    if (aim_delta_energy_k > delta_energy_k) {
+                        // Not exceed the aim
+                        multiplier = 1;
+                    }
+                    else if (aim_delta_energy_k < 0) {
+                        // Correction should not change the direction
+                        multiplier = 0;
+                    }
+                    else {
+                        multiplier = aim_delta_energy_k / delta_energy_k;
+                    }
+                }
+                else if (delta_energy_k < 0) {
+                    // Already make energy less
+                    // If aim is less than the current energy, we do not set it to fit aim, because
+                    // this way there will be huge a, v and x, which means explosion. To avoid fast
+                    // change, just leave it the same.
+                    multiplier = 1;
+                }
+                if (enable_debug_output)
+                    printf("aim: %lf, multiplier: %lf\n", aim_delta_energy_k, multiplier);
+                OMP_PARALLEL_FOR
+                for (int i = 0; i < n_vertices; i++) {
+                    X.row(i) += delta_X.row(i);
+                    delta_X.row(i) *= multiplier;
+                }
+            }
+        }
+
         // update X and vel
+        OMP_PARALLEL_FOR
         for (int i = 0; i < n_vertices; i++) {
             if (!dirichlet_bc_mask[i]) {
-                X.row(i) -= delta_X.row(i);
                 vel.row(i) = -delta_X.row(i) / h;
                 if (vel.row(i).norm() > speed_of_light) {
-                    vel.row(i) = (1 - 1e-6) * speed_of_light * vel.row(i).normalized();
+                    vel.row(i) = (1 - 1e-3) * speed_of_light * vel.row(i).normalized();
                 }
+                X.row(i) += vel.row(i) * h;
+            }
+            else {
+                vel.row(i).setZero();
             }
         }
 
@@ -115,6 +263,7 @@ void MassSpring::step()
     else if (time_integrator == SEMI_IMPLICIT_EULER) {
         // Semi-implicit Euler
         Eigen::MatrixXd force = -computeGrad(stiffness) / mass_per_vertex;
+        OMP_PARALLEL_FOR
         for (int i = 0; i < n_vertices; i++) {
             if (!dirichlet_bc_mask[i]) {
                 force.row(i) += acceleration_ext.transpose();
@@ -124,20 +273,156 @@ void MassSpring::step()
             force += acceleration_collision;
         }
         Eigen::MatrixXd acceleration(n_vertices, 3);
+        OMP_PARALLEL_FOR
         for (int i = 0; i < n_vertices; i++) {
             if (!dirichlet_bc_mask[i]) {
                 auto beta = vel.row(i) / speed_of_light;
-                float gamma = 1.0 / std::sqrt(1.0 - beta.squaredNorm());
+                double gamma = 1.0 / std::sqrt(1.0 - beta.squaredNorm());
                 acceleration.row(i) = (force.row(i) - force.row(i).dot(beta) * beta) / gamma;
+            }
+            else {
+                acceleration.row(i).setZero();
             }
         }
 
-        // (HW TODO): Implement semi-implicit Euler time integration
+        if (enable_energy_correction) {
+            // Energy correction
+            double old_energy_p = computeEnergy(stiffness);
+            double old_energy_k = 0;
+            for (int i = 0; i < n_vertices; i++) {
+                auto beta = vel.row(i) / speed_of_light;
+                old_energy_k += mass_per_vertex * speed_of_light * speed_of_light /
+                                std::sqrt(1 - beta.squaredNorm());
+                old_energy_p -= mass_per_vertex * (acceleration_ext.dot(X.row(i)) +
+                                                   acceleration_collision.row(i).dot(X.row(i)));
+            }
+            if (enable_debug_output)
+                printf(
+                    "old energy p: %6lf, old energy k: %6lf, old energy: %6lf\n",
+                    old_energy_p,
+                    old_energy_k,
+                    old_energy_p + old_energy_k);
+
+            OMP_PARALLEL_FOR
+            for (int i = 0; i < n_vertices; i++) {
+                X.row(i) += h * vel.row(i) + h * h * std::pow(damping, h) * acceleration.row(i);
+            }
+
+            double new_energy_p = computeEnergy(stiffness);
+            double new_energy_k = 0;
+            for (int i = 0; i < n_vertices; i++) {
+                double beta = (vel.row(i) + h * std::pow(damping, h) * acceleration.row(i)).norm() /
+                              speed_of_light;
+                if (beta > 1 - 1e-3) {
+                    beta = 1 - 1e-3;
+                }
+                new_energy_k +=
+                    mass_per_vertex * speed_of_light * speed_of_light / std::sqrt(1 - beta * beta);
+                new_energy_p -= mass_per_vertex * (acceleration_ext.dot(X.row(i)) +
+                                                   acceleration_collision.row(i).dot(X.row(i)));
+            }
+            if (enable_debug_output)
+                printf(
+                    "new energy p: %6lf, new energy k: %6lf, new energy: %6lf\n",
+                    new_energy_p,
+                    new_energy_k,
+                    new_energy_p + new_energy_k);
+            // Potential energy transfer to kinetic energy
+            const double aim_delta_energy_k = old_energy_p - new_energy_p;
+
+            if (enable_energy_correction == 1) {
+                // Method 1: Correct a along tangent direction
+                double delta_energy_k = 0;
+                for (int i = 0; i < n_vertices; i++) {
+                    auto beta = vel.row(i) / speed_of_light;
+                    delta_energy_k += h * beta.dot(acceleration.row(i)) * mass_per_vertex *
+                                      speed_of_light / std::pow(1 - beta.squaredNorm(), 1.5);
+                }
+                if (enable_debug_output)
+                    printf("delta energy k: %lf\n", delta_energy_k);
+                double multiplier;
+                if (delta_energy_k == 0) {
+                    // For those who doesn't have a rising tangent direction. Not work in secant
+                    // method.
+                    multiplier = 1;
+                }
+                else if (delta_energy_k > 0) {
+                    // Make energy less
+                    if (aim_delta_energy_k > delta_energy_k) {
+                        // Not exceed the aim
+                        multiplier = 1;
+                    }
+                    else if (aim_delta_energy_k < 0) {
+                        // Correction should not change the direction
+                        multiplier = 0;
+                    }
+                    else {
+                        multiplier = aim_delta_energy_k / delta_energy_k;
+                    }
+                }
+                else if (delta_energy_k < 0) {
+                    // Already make energy less
+                    // If aim is less than the current energy, we do not set it to fit aim, because
+                    // this way there will be huge a, v and x, which means explosion. To avoid fast
+                    // change, just leave it the same.
+                    multiplier = 1;
+                }
+                if (enable_debug_output)
+                    printf("aim: %lf, multiplier: %lf\n", aim_delta_energy_k, multiplier);
+                OMP_PARALLEL_FOR
+                for (int i = 0; i < n_vertices; i++) {
+                    X.row(i) -= h * vel.row(i) + h * h * std::pow(damping, h) * acceleration.row(i);
+                    acceleration.row(i) *= multiplier;
+                }
+            }
+            else if (enable_energy_correction == 2) {
+                // Method 2: Correct a along secant direction
+                double delta_energy_k = new_energy_k - old_energy_k;
+                if (enable_debug_output)
+                    printf("delta energy k: %lf\n", delta_energy_k);
+                double multiplier;
+                if (delta_energy_k == 0) {
+                    // For those who doesn't have a rising tangent direction. Not work in secant
+                    // method.
+                    multiplier = 1;
+                }
+                else if (delta_energy_k > 0) {
+                    // Make energy less
+                    if (aim_delta_energy_k > delta_energy_k) {
+                        // Not exceed the aim
+                        multiplier = 1;
+                    }
+                    else if (aim_delta_energy_k < 0) {
+                        // Correction should not change the direction
+                        multiplier = 0;
+                    }
+                    else {
+                        multiplier = aim_delta_energy_k / delta_energy_k;
+                    }
+                }
+                else if (delta_energy_k < 0) {
+                    // Already make energy less
+                    // If aim is less than the current energy, we do not set it to fit aim, because
+                    // this way there will be huge a, v and x, which means explosion. To avoid fast
+                    // change, just leave it the same.
+                    multiplier = 1;
+                }
+                if (enable_debug_output)
+                    printf("aim: %lf, multiplier: %lf\n", aim_delta_energy_k, multiplier);
+                OMP_PARALLEL_FOR
+                for (int i = 0; i < n_vertices; i++) {
+                    X.row(i) -= h * vel.row(i) + h * h * std::pow(damping, h) * acceleration.row(i);
+                    acceleration.row(i) *= multiplier;
+                }
+            }
+        }
+
         // Update X and vel
+        OMP_PARALLEL_FOR
         for (int i = 0; i < n_vertices; i++) {
             vel.row(i) += h * std::pow(damping, h) * acceleration.row(i);
             if (vel.row(i).norm() > speed_of_light) {
-                vel.row(i) = (1 - 1e-6) *speed_of_light * vel.row(i).normalized();
+                vel.row(i) = (1 - 1e-3) * speed_of_light * vel.row(i).normalized();
             }
             X.row(i) += h * vel.row(i);
         }
@@ -176,14 +461,12 @@ Eigen::MatrixXd MassSpring::computeGrad(double stiffness)
     // g (n x 3) stores the gradient of the energy. The gradient is about the vertex i.
     unsigned i = 0;
     for (const auto& e : E) {
-        // --------------------------------------------------
-        // (HW TODO): Implement the gradient computation
         const Eigen::Vector3d x = X.row(e.first) - X.row(e.second);
         g.row(e.first) += stiffness * (x.norm() - E_rest_length[i]) * x.normalized();
         g.row(e.second) += -stiffness * (x.norm() - E_rest_length[i]) * x.normalized();
-        // --------------------------------------------------
         i++;
     }
+    OMP_PARALLEL_FOR
     for (int j = 0; j < X.rows(); j++) {
         if (dirichlet_bc_mask[j]) {
             g.row(j).setZero();
@@ -199,24 +482,26 @@ Eigen::SparseMatrix<double> MassSpring::computeHessianSparse(double stiffness)
     Eigen::SparseMatrix<double> H(n_vertices * 3, n_vertices * 3);
 
     unsigned i = 0;
-    auto k = stiffness;
     const auto I = Eigen::MatrixXd::Identity(3, 3);
 
     std::vector<Eigen::Triplet<double>> triplets;
+    triplets.clear();
     for (const auto& e : E) {
-        // --------------------------------------------------
-        // (HW TODO): Implement the sparse version Hessian computation
-        // Remember to consider fixed points
-        // You can also consider positive definiteness here
         const Eigen::Vector3d x = X.row(e.first) - X.row(e.second);
-        const Eigen::MatrixXd I = Eigen::MatrixXd::Identity(3, 3);
         auto beta1 = vel.row(e.first) / speed_of_light;
         auto beta2 = vel.row(e.second) / speed_of_light;
-        const Eigen::MatrixXd He =
-            k * (x * x.transpose() / x.squaredNorm() +
-                 (1 - E_rest_length[i] / x.norm()) * (I - x * x.transpose() / x.squaredNorm()));
-        const Eigen::MatrixXd He1 = (I - beta1 * beta1.transpose()) * He;
-        const Eigen::MatrixXd He2 = (I - beta2 * beta2.transpose()) * He;
+        const Eigen::MatrixXd He = stiffness * (x * x.transpose() / x.squaredNorm() +
+                                                (1 - E_rest_length[i] / x.norm()) *
+                                                    (I - x * x.transpose() / x.squaredNorm()));
+        Eigen::MatrixXd He1 = He, He2 = He;
+        for (int p = 0; p < 3; p++) {
+            for (int q = 0; q < 3; q++) {
+                for (int r = 0; r < 3; r++) {
+                    He1(p, q) -= beta1(p) * beta1(r) * He(r, q);
+                    He2(p, q) -= beta2(p) * beta2(r) * He(r, q);
+                }
+            }
+        }
         for (int p = 0; p < 3; p++) {
             for (int q = 0; q < 3; q++) {
                 if (!dirichlet_bc_mask[e.first]) {
@@ -237,7 +522,6 @@ Eigen::SparseMatrix<double> MassSpring::computeHessianSparse(double stiffness)
                 }
             }
         }
-        // --------------------------------------------------
         i++;
     }
     for (int j = 0; j < n_vertices; j++) {
@@ -283,13 +567,11 @@ void MassSpring::reset()
     this->vel.setZero();
 }
 
-// ----------------------------------------------------------------------------------
-// (HW Optional) Bonus part
 Eigen::MatrixXd MassSpring::getSphereCollisionForce(Eigen::Vector3d center, double radius)
 {
     Eigen::MatrixXd force = Eigen::MatrixXd::Zero(X.rows(), X.cols());
+    OMP_PARALLEL_FOR
     for (int i = 0; i < X.rows(); i++) {
-        // (HW Optional) Implement penalty-based force here
         auto delta_x = X.row(i) - center.transpose();
         force.row(i) += collision_penalty_k *
                         std::max(0.0, collision_scale_factor * radius - delta_x.norm()) *
@@ -297,73 +579,5 @@ Eigen::MatrixXd MassSpring::getSphereCollisionForce(Eigen::Vector3d center, doub
     }
     return force;
 }
-// ----------------------------------------------------------------------------------
-
-/*
-bool MassSpring::set_dirichlet_bc_mask(const std::vector<bool>& mask)
-{
-    if (mask.size() == X.rows()) {
-        dirichlet_bc_mask = mask;
-        return true;
-    }
-    else
-        return false;
-}
-
-bool MassSpring::update_dirichlet_bc_vertices(const MatrixXd& control_vertices)
-{
-    for (int i = 0; i < dirichlet_bc_control_pair.size(); i++) {
-        int idx = dirichlet_bc_control_pair[i].first;
-        int control_idx = dirichlet_bc_control_pair[i].second;
-        X.row(idx) = control_vertices.row(control_idx);
-    }
-
-    return true;
-}
-
-bool MassSpring::init_dirichlet_bc_vertices_control_pair(
-    const MatrixXd& control_vertices,
-    const std::vector<bool>& control_mask)
-{
-    if (control_mask.size() != control_vertices.rows())
-        return false;
-
-    // TODO: optimize this part from O(n) to O(1)
-    // First, get selected_control_vertices
-    std::vector<VectorXd> selected_control_vertices;
-    std::vector<int> selected_control_idx;
-    for (int i = 0; i < control_mask.size(); i++) {
-        if (control_mask[i]) {
-            selected_control_vertices.push_back(control_vertices.row(i));
-            selected_control_idx.push_back(i);
-        }
-    }
-
-    // Then update mass spring fixed vertices
-    for (int i = 0; i < dirichlet_bc_mask.size(); i++) {
-        if (dirichlet_bc_mask[i]) {
-            // O(n^2) nearest point search, can be optimized
-            // -----------------------------------------
-            int nearest_idx = 0;
-            double nearst_dist = 1e6;
-            VectorXd X_i = X.row(i);
-            for (int j = 0; j < selected_control_vertices.size(); j++) {
-                double dist = (X_i - selected_control_vertices[j]).norm();
-                if (dist < nearst_dist) {
-                    nearst_dist = dist;
-                    nearest_idx = j;
-                }
-            }
-            //-----------------------------------------
-
-            X.row(i) = selected_control_vertices[nearest_idx];
-            dirichlet_bc_control_pair.push_back(
-                std::make_pair(i, selected_control_idx[nearest_idx]));
-        }
-    }
-
-    return true;
-}
-*/
 
 }  // namespace USTC_CG::node_relativity_mass_spring

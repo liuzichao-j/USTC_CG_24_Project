@@ -133,21 +133,9 @@ void main() {
     depth = clipPos.z / clipPos.w;
     texcoords = vTexcoord;
 
-    // Constants
-    vec3 velocity = (camSpeed - vertexVelocity) / (1 - dot(vertexVelocity, camSpeed) / lightSpeed / lightSpeed);
-    vec3 beta = velocity / lightSpeed;
+    vec3 beta = (camSpeed - vertexVelocity) / (1 - dot(vertexVelocity, camSpeed) / lightSpeed / lightSpeed) / lightSpeed;
     float gamma = 1 / sqrt(1 - dot(beta, beta));
-    float multiplier = 1;
-    if (length(beta) > 0)
-    {
-        // Get the vector from the camera to the vertex
-        vec3 dir = position - camPos;
-        dir = normalize(dir);
-        // Calculate old direction
-        dir = normalize(dir + gamma * beta + (gamma - 1) * beta * dot(beta, dir) / dot(beta, beta));
-        // Get multiplier
-        multiplier = gamma * (1 - dot(beta, dir));
-    }
+    float multiplier = gamma * (1 + dot(beta, normalize(camPos - position)));
 
     vec3 textureColor = texture(diffuseColorSampler, vTexcoord).xyz;
     vec3 dopplerColor;
