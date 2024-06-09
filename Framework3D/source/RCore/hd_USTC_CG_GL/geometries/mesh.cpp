@@ -262,7 +262,7 @@ void Hd_USTC_CG_Mesh::Sync(
         float damping = limit_c_data->iteration_damping;
         for (int i = 0; i < points.size(); i++) {
             float t = time;
-            GfVec3f x, v, prev_x, next_x;
+            GfVec3f x, prev_x, next_x;
             double sample_dt, real_dt;
             for (int itr = 1; itr <= itr_n + 1; itr++) {
                 // Newton Iteration
@@ -285,18 +285,31 @@ void Hd_USTC_CG_Mesh::Sync(
                 real_dt = t - time_samples[prev_idx];
                 double lambda = real_dt / sample_dt;
                 x = prev_x * (1 - lambda) + next_x * lambda;
-                v = (next_x - prev_x) / sample_dt;
 
                 if (itr == itr_n + 1)
                     break;
                 double d = pxr::GfDot(x - camera_position, beta);
+                double prev_d = pxr::GfDot(prev_x - camera_position, beta);
 
                 double f = d - c * (t - time);
-                double df = GfDot((x - camera_position).GetNormalized(), v) - c;
+                double df = (d - prev_d) / real_dt - c;
                 double step = 1;
                 if (df != 0)
                     step = f / df * damping;
                 t -= step;
+
+                if (t < 0.0f) {
+                    x = hist_data_transform[0].TransformAffine(hist_data_pos[0][i]);
+                    d = pxr::GfDot(x - camera_position, beta);
+                    t = d / c + time;
+                    break;
+                }
+                if (t > time_samples.back()) {
+                    x = hist_data_transform.back().TransformAffine((hist_data_pos.back())[i]);
+                    d = pxr::GfDot(x - camera_position, beta);
+                    t = d / c + time;
+                    break;
+                }
             }
 
             if (t <= 0.0f) {
@@ -367,7 +380,7 @@ void Hd_USTC_CG_Mesh::Sync(
         for (int i = 0; i < points.size(); i++)
         {
 			float t = time;
-            GfVec3f x, prev_x, next_x;
+            GfVec3f x, v, prev_x, next_x;
 			double sample_dt, real_dt;
             for (int itr = 1; itr <= itr_n + 1; itr++)
             {
@@ -390,14 +403,14 @@ void Hd_USTC_CG_Mesh::Sync(
                 real_dt = t - time_samples[prev_idx];
                 double lambda = real_dt / sample_dt;
                 x = prev_x * (1 - lambda) + next_x * lambda;
+                v = (next_x - prev_x) / sample_dt;
 
                 if (itr == itr_n + 1)
                     break;
                 double d = (x - camera_position).GetLength();
-                double prev_d = (prev_x - camera_position).GetLength();
-
+                
                 double f = d + c * (t - time);
-                double df = (d - prev_d) / real_dt + c;
+                double df = GfDot((x - camera_position).GetNormalized(), v) - c;
                 double step = 1;
                 if (df != 0) step = f / df * damping;
                 t -= step;
