@@ -410,7 +410,7 @@ void Hd_USTC_CG_Mesh::Sync(
                 double d = (x - camera_position).GetLength();
                 
                 double f = d + c * (t - time);
-                double df = GfDot((x - camera_position).GetNormalized(), v) - c;
+                double df = GfDot((x - camera_position).GetNormalized(), v) + c;
                 double step = 1;
                 if (df != 0) step = f / df * damping;
                 t -= step;
