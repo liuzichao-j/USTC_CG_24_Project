@@ -14,7 +14,7 @@ uniform float arg1;
 
 layout(location = 0) out vec4 Color;
 
-const int kernelSize = 64;
+const int kernelSize = 8;
 const float PI = 3.14159265359;
 
 //copied and adjusted from https://zhuanlan.zhihu.com/p/599263679
@@ -90,7 +90,7 @@ void main()
     // occlusion = pow(occlusion, 1.0 / 2.2);
 
     // Trick: 纯视觉经验地把 ssao 调到一个更明显的值，而不是采用 gamma 校正
-    occlusion = pow(occlusion, 3.0);
+    occlusion = occlusion * occlusion * occlusion * occlusion;
 
     Color.rgb = vec3(occlusion);
     Color.a = 1.0;

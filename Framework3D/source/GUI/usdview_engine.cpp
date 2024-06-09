@@ -71,6 +71,13 @@ class UsdviewEngineImpl {
 void UsdviewEngineImpl::DrawMenuBar()
 {
     ImGui::BeginMenuBar();
+
+	auto posXc = ImGui::GetColumnWidth() / 2 - ImGui::CalcTextSize("c = 0.00m/s").x / 2;
+	if (posXc > ImGui::GetCursorPosX())
+		ImGui::SetCursorPosX(posXc);
+	ImGui::Text("c = %.2fm/s", GlobalUsdStage::speed_of_light);
+
+	ImGui::SetCursorPosX(12);
     if (ImGui::BeginMenu("Free Camera")) {
         if (ImGui::BeginMenu("Camera Type")) {
             if (ImGui::MenuItem(
@@ -132,6 +139,7 @@ void UsdviewEngineImpl::DrawMenuBar()
 				break;
         }
         
+
         auto posX =
             (ImGui::GetCursorPosX() + ImGui::GetColumnWidth() -
              ImGui::CalcTextSize(text.c_str()).x - ImGui::GetScrollX() -
@@ -148,6 +156,7 @@ void UsdviewEngineImpl::DrawMenuBar()
         if (velo_posX > ImGui::GetCursorPosX())
             ImGui::SetCursorPosX(velo_posX);
         ImGui::Text("v = %.2fm/s = %.2fc", camera_speed, camera_speed / GlobalUsdStage::speed_of_light);
+
     }
 
     ImGui::EndMenuBar();

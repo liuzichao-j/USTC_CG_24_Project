@@ -85,7 +85,6 @@ static void node_exec(ExeParams params)
 
                 auto rotation = final_transform.ExtractRotation();
                 auto translation = final_transform.ExtractTranslation();
-                // TODO: rotation not read.
 				Eigen::Matrix4f mat = Eigen::Matrix4f::Zero();
 				for (int i = 0; i < 4; i++)
 					for (int j = 0; j < 4; j++)
@@ -93,7 +92,7 @@ static void node_exec(ExeParams params)
 						mat(i, j) = final_transform[j][i];
 					}
                 Eigen::Matrix3f mat_rot = mat.block(0, 0, 3, 3);
-				Eigen::Vector3f rot = mat_rot.eulerAngles(0, 1, 2) * 180;
+				Eigen::Vector3f rot = mat_rot.eulerAngles(0, 1, 2) * 180 / 3.141593;
                 auto scale = pxr::GfVec3f(mat_rot.col(0).norm(), mat_rot.col(1).norm(), mat_rot.col(2).norm());
 
                 xform_component->translation.push_back(pxr::GfVec3f(translation));
