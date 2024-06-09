@@ -17,7 +17,7 @@ uniform float arg4;
 
 layout(location = 0) out vec4 Color;
 
-const int kernelSize = 4;
+const int kernelSize = 6;
 const float PI = 3.14159265359;
 float Gauss_Bilateral(float dist_sq, vec3 col1, vec3 col2)
 {

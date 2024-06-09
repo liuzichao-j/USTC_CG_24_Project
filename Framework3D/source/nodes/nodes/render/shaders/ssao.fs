@@ -14,7 +14,7 @@ uniform float arg1;
 
 layout(location = 0) out vec4 Color;
 
-const int kernelSize = 12;
+const int kernelSize = 64;
 const float PI = 3.14159265359;
 
 //copied and adjusted from https://zhuanlan.zhihu.com/p/599263679
